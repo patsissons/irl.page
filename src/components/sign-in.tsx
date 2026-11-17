@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { UserPlus } from "lucide-react";
+import { Link } from "react-router";
 import type { PublicUser } from "@shared/types";
 import { api, loginUrl } from "@/lib/api";
 import { useSession } from "@/lib/session";
@@ -51,6 +52,16 @@ export function SignIn({ next, title }: { next: string; title?: string }) {
           ? "This is the demo, so there are no accounts. Pick one of these made-up people to look around as."
           : "We use your email once, to recognise you next time. Only a scrambled fingerprint of it is kept."}
       </p>
+      {!demo && (
+        <p className="mt-1 text-sm">
+          <Link
+            to="/privacy"
+            className="text-primary underline underline-offset-2"
+          >
+            How we handle your data
+          </Link>
+        </p>
+      )}
       <div className="mt-4 grid gap-2">
         {auth.google && (
           <Button asChild size="lg" variant="outline">
