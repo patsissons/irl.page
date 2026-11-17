@@ -9,6 +9,7 @@ import type {
   NearbyResponse,
   PublicUser,
   TicketView,
+  VenueDetail,
 } from "@shared/types";
 
 export class ApiFailure extends Error {
@@ -62,6 +63,8 @@ export const api = {
         near ? `&lat=${near.lat}&lng=${near.lng}` : ""
       }`,
     ),
+  venue: (id: string) =>
+    call<VenueDetail>(`/api/venues/${encodeURIComponent(id)}`),
   createTicket: (body: CreateTicketRequest) =>
     call<TicketView>("/api/tickets", { method: "POST", body }),
   ticket: (code: string) => call<TicketView>(ticketPath(code)),

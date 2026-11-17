@@ -1,9 +1,11 @@
+import { getMany, type NodeRec } from "../shared/db";
 import { isLatLng, type LatLng } from "../shared/geo";
 import type {
   AddressResult,
   NearbyResponse,
   VenueDraft,
 } from "../shared/types";
+import { buildVenueDetail } from "../shared/venue-detail";
 import { NEARBY_RADIUS_M, mergeCandidates, venuesNear } from "../shared/venues";
 import { fail, json, type Ctx } from "./http";
 import { currentUser } from "./users";
@@ -167,4 +169,53 @@ export async function handleAddressSearch(ctx: Ctx): Promise<Response> {
   } catch {
     return fail(502, "address search unavailable");
   }
+}
+
+/**
+ * GET /api/venues/<id> -> the venue page: where it is, who has been, and
+ * visits per day. Public, like the graph, and built from the same facts.
+ */
+export async function handleVenue(ctx: Ctx, id: string): Promise<Response> {
+  const venue = await ctx.db.get("venues", id);
+  if (!venue) return fail(404, "no such venue");
+  const [tickets, venueNodes] = await Promise.all([
+    ctx.db.list("tickets", {
+      where: [
+        { field: "venue", op: "=", value: id },
+        { field: "status", op: "=", value: "submitted" },
+      ],
+    }),
+    ctx.db.list("nodes", {
+      where: [
+        { field: "kind", op: "=", value: "venue" },
+        { field: "venue", op: "=", value: id },
+      ],
+    }),
+  ]);
+  const ids = [
+    ...new Set(
+      tickets.flatMap((ticket) => [ticket.creator, ...ticket.participants]),
+    ),
+  ];
+  const people = await getMany(ctx.db, "people", ids);
+  const personNodes = new Map<string, NodeRec>();
+  for (let i = 0; i < ids.length; i += 40) {
+    const nodes = await ctx.db.list("nodes", {
+      where: [
+        { field: "kind", op: "=", value: "person" },
+        { field: "user", op: "in", value: ids.slice(i, i + 40) },
+      ],
+    });
+    for (const node of nodes) personNodes.set(node.user, node);
+  }
+  return json(
+    buildVenueDetail(
+      venue,
+      tickets,
+      people,
+      personNodes,
+      venueNodes[0] ?? null,
+    ),
+    { headers: { "cache-control": "public, max-age=15" } },
+  );
 }

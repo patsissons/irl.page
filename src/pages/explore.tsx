@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { useSize } from "@/hooks/use-size";
 import { api } from "@/lib/api";
 import { focusGraph, focusTarget } from "@/lib/focus";
+import { venuePath } from "@/lib/links";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -237,7 +238,13 @@ export function Explore({ error }: { error: string | null }) {
                   <span>Their connections</span>
                 </>
               ) : (
-                <span className="max-w-48 truncate">{target.venue.name}</span>
+                <Link
+                  to={venuePath(target.venue.venueId)}
+                  title="Venue details"
+                  className="max-w-48 truncate rounded-sm underline decoration-white/40 underline-offset-4 hover:decoration-white focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+                >
+                  {target.venue.name}
+                </Link>
               )}
               <button
                 type="button"

@@ -29,6 +29,7 @@
   --color-stage: var(--stage);
   --color-ticket: var(--ticket);
   --color-ticket-foreground: var(--ticket-foreground);
+  --color-chart-visits: var(--chart-visits);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -71,6 +72,9 @@
   --stage: #0b0b12;
   --ticket: #fff8ec;
   --ticket-foreground: #221b16;
+  /* The one chart series. Each mode's step is checked against its card
+     surface for contrast and lightness (the dataviz palette validator). */
+  --chart-visits: #de3d34;
 }
 
 .dark {
@@ -92,6 +96,7 @@
   --border: oklch(1 0 0 / 11%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.72 0.17 30);
+  --chart-visits: #e8604f;
 }
 
 @layer base {

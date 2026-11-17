@@ -18,6 +18,7 @@ coverage/
 .dev.vars.*
 !.dev.vars.example
 !.dev.vars.e2e
+!.dev.vars.demo-e2e
 
 # editor / os
 .DS_Store

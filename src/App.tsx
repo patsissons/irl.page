@@ -11,6 +11,7 @@ import { TicketPage } from "./pages/ticket";
 // Pages with heavy, browser-only dependencies (maps, the camera scanner).
 const NewTicket = lazy(() => import("./pages/new-ticket"));
 const Scan = lazy(() => import("./pages/scan"));
+const VenuePage = lazy(() => import("./pages/venue"));
 
 /**
  * A ticket's QR code is https://irl.page?ticket=<code>, so scanning it with
@@ -72,6 +73,14 @@ export default function App() {
         element={
           <Page>
             <TicketPage />
+          </Page>
+        }
+      />
+      <Route
+        path="/venue/:id"
+        element={
+          <Page>
+            <VenuePage />
           </Page>
         }
       />
