@@ -39,4 +39,13 @@ describe("the site's link preview", () => {
     expect(png.readUInt32BE(16)).toBe(1200);
     expect(png.readUInt32BE(20)).toBe(630);
   });
+
+  it("has an opaque 180px home-screen icon for iOS", async () => {
+    expect(await shell()).toContain(
+      '<link rel="apple-touch-icon" href="/apple-touch-icon.png" />',
+    );
+    const png = await file("public/apple-touch-icon.png");
+    expect(png.readUInt32BE(16)).toBe(180);
+    expect(png.readUInt32BE(20)).toBe(180);
+  });
 });

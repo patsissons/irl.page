@@ -1,7 +1,11 @@
-// Draws public/og.png, the site's link-preview (Open Graph) image. Run
-// `pnpm og:image` after changing the design and commit the PNG. Ticket links
-// get their own image from the Worker (worker/preview.ts); this one is for
-// every other page.
+// Draws the site's raster images from the same shapes as public/favicon.svg:
+//   public/og.png                the link-preview (Open Graph) image. Ticket
+//                                links get their own from the Worker
+//                                (worker/preview.ts); this is for every
+//                                other page.
+//   public/apple-touch-icon.png  the home-screen icon on iOS, which ignores
+//                                SVG icons.
+// Run `pnpm site:images` after changing a design and commit the PNGs.
 
 import { readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -84,9 +88,29 @@ const fontBuffers = await Promise.all(
       new Uint8Array(await readFile(new URL(`public/fonts/${file}`, ROOT))),
   ),
 );
-const resvg = new Resvg(svg, {
-  font: { fontBuffers, loadSystemFonts: false, defaultFontFamily: "Geist" },
-});
-const png = resvg.render().asPng();
-await writeFile(new URL("public/og.png", ROOT), png);
-console.log(`Wrote public/og.png (${WIDTH}x${HEIGHT}, ${png.length} bytes)`);
+async function draw(file: string, source: string): Promise<void> {
+  const resvg = new Resvg(source, {
+    font: { fontBuffers, loadSystemFonts: false, defaultFontFamily: "Geist" },
+  });
+  const image = resvg.render();
+  const png = image.asPng();
+  await writeFile(new URL(`public/${file}`, ROOT), png);
+  console.log(
+    `Wrote public/${file} (${image.width}x${image.height}, ${png.length} bytes)`,
+  );
+}
+
+// The favicon without its rounded corners or any transparency: iOS rounds
+// the icon itself and paints transparent pixels black.
+const ICON = 180;
+const icon = `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON}" height="${ICON}" viewBox="0 0 64 64">
+  <rect width="64" height="64" fill="${BACKDROP}"/>
+  <g transform="translate(12 18)">
+    <path d="M0 4a4 4 0 0 1 4-4h32a4 4 0 0 1 4 4v5a5 5 0 0 0 0 10v5a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4v-5a5 5 0 0 0 0-10z" fill="${CORAL}"/>
+    <path d="M26 2v24" stroke="${BACKDROP}" stroke-width="2.5" stroke-dasharray="3 3.5"/>
+    <circle cx="13" cy="14" r="5" fill="${BACKDROP}"/>
+  </g>
+</svg>`;
+
+await draw("og.png", svg);
+await draw("apple-touch-icon.png", icon);

@@ -19,7 +19,7 @@
     "db:reset": "node scripts/reset.ts",
     "db:deploy": "bash scripts/pocketbase-deploy.sh",
     "venue:merge": "node scripts/venue-merge.ts",
-    "og:image": "node scripts/og-image.ts",
+    "site:images": "node scripts/site-images.ts",
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "pnpm build && wrangler deploy",
