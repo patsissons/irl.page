@@ -1,5 +1,5 @@
 /** No look-alike characters, so a code can be read out or typed. */
-const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
+export const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
 
 export function randomId(length: number): string {
   const bytes = crypto.getRandomValues(new Uint8Array(length));
