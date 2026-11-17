@@ -1,0 +1,25 @@
+# Copy to .dev.vars for local development (gitignored).
+
+# Where the Worker (and the scripts) reach PocketBase, and the superuser they
+# sign in as. `pnpm db` creates this superuser on the local instance.
+POCKETBASE_URL=http://127.0.0.1:8090
+POCKETBASE_SUPERUSER_EMAIL=worker@irl.invalid
+POCKETBASE_SUPERUSER_PASSWORD=
+
+# 32+ random bytes each: `openssl rand -base64 32`.
+# Rotating SESSION_SECRET signs everyone out.
+SESSION_SECRET=
+# Keys the email hash. Rotating it orphans every account, so set it once.
+EMAIL_PEPPER=
+
+# OAuth apps. Callback URLs: <origin>/api/auth/google/callback and
+# <origin>/api/auth/github/callback. A provider with no client id is hidden.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+
+# Local only: "1" adds a sign-in picker for seed users. Never set in production.
+DEV_LOGIN=1
+# "off" skips the OpenStreetMap lookups (nearby venues, address search).
+OSM_LOOKUP=on
