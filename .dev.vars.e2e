@@ -1,0 +1,13 @@
+# Test-only values for the Playwright run (CLOUDFLARE_ENV=e2e). Not secrets:
+# the e2e PocketBase is a throwaway instance on its own port and data dir.
+POCKETBASE_URL=http://127.0.0.1:8191
+POCKETBASE_SUPERUSER_EMAIL=worker@irl.invalid
+POCKETBASE_SUPERUSER_PASSWORD=e2e-only-password
+SESSION_SECRET=e2e-only-session-secret
+EMAIL_PEPPER=e2e-only-pepper
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+DEV_LOGIN=1
+OSM_LOOKUP=off
