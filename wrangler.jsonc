@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "irl-page",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "not_found_handling": "single-page-application",
+  },
+  "observability": { "enabled": true },
+  "workers_dev": true,
+  // Required (even empty) for `wrangler preview`.
+  "previews": {},
+  // Every value in worker/env.ts is a Worker secret (`wrangler secret put`)
+  // in production and comes from .dev.vars locally.
+  "routes": [{ "pattern": "irl.page", "custom_domain": true }],
+  "env": {
+    // The Playwright run (CLOUDFLARE_ENV=e2e) reads .dev.vars.e2e.
+    "e2e": { "routes": [] },
+  },
+}
