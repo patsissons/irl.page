@@ -136,6 +136,8 @@ A provider without a client id is simply not offered.
 - `pnpm venue:merge <from> <to>`: fold one venue into another; with no
   arguments, list venues and their ids
 - `pnpm build`: production build
+- `pnpm site:images`: redraw `public/og.png` (the link-preview image) and
+  `public/apple-touch-icon.png`
 - `pnpm db:deploy`: sync `pocketbase/pb_migrations` to the PocketHost instance
 - `pnpm run deploy`: build and deploy the Worker
 - `pnpm typecheck`: generate Worker types and type-check

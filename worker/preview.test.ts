@@ -18,6 +18,11 @@ const SHELL = `<!doctype html>
     />
     <meta property="og:title" content="IRL Page" />
     <meta property="og:url" content="https://irl.page/" />
+    <meta property="og:image" content="https://irl.page/og.png" />
+    <meta
+      name="twitter:image"
+      content="https://irl.page/og.png"
+    />
   </head>
   <body><div id="root"></div></body>
 </html>`;
@@ -119,6 +124,9 @@ describe("ticket link pages", () => {
     // The shell's own tags are replaced, not duplicated.
     expect(html.match(/og:title/g)).toHaveLength(1);
     expect(html.match(/name="description"/g)).toHaveLength(1);
+    expect(html.match(/og:image"/g)).toHaveLength(1);
+    expect(html.match(/twitter:image"/g)).toHaveLength(1);
+    expect(html).not.toContain("og.png");
     expect(html).not.toContain("A map of people");
     expect(html).toContain('<div id="root"></div>');
   });

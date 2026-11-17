@@ -5,7 +5,7 @@
 pnpm + TypeScript + React + Vite + Tailwind v4 + shadcn/ui, with a
 Cloudflare Worker backend ("Workers with static assets" via
 @cloudflare/vite-plugin, config in wrangler.jsonc) and PocketBase as the
-database. Tested with Vitest (unit: `src/`, `worker/`, `shared/`) and
+database. Tested with Vitest (unit: `src/`, `worker/`, `shared/`, `scripts/`) and
 Playwright (e2e: `e2e/`), linted with ESLint, formatted with Prettier.
 
 - TypeScript runs side-by-side per the official TS 7 guidance: `tsc` (and
