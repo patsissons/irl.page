@@ -10,13 +10,17 @@ import {
 
 describe("session cookie", () => {
   it("round-trips a sealed payload", async () => {
+    // Long enough that random ciphertext can't contain it by chance: a
+    // two-character id showed up in about one run in fifty.
+    const uid = "person-record-id-0001";
     const sealed = await sealSession("secret", {
-      uid: "u1",
+      uid,
       picture: "https://p/x",
     });
-    expect(sealed).not.toContain("u1");
+    expect(sealed).not.toContain(uid);
+    expect(sealed).not.toContain("https");
     expect(await openSession("secret", sealed)).toEqual({
-      uid: "u1",
+      uid,
       picture: "https://p/x",
     });
   });
