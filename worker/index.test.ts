@@ -6,11 +6,28 @@ import { DRAFT } from "../shared/testing";
 import type { MeResponse, NearbyResponse, TicketView } from "../shared/types";
 import type { Env } from "./env";
 import { handleApi, type Deps } from "./index";
+import { personForEmail } from "./users";
 
 const ORIGIN = "https://irl.test";
 /** Standing at the test venue, and a few kilometres away from it. */
 const AT = { lat: DRAFT.lat, lng: DRAFT.lng, accuracy: 10 };
 const AWAY = { lat: DRAFT.lat + 0.05, lng: DRAFT.lng, accuracy: 10 };
+/** Stands in for the Sign in with Apple key (a .p8 file is PKCS#8 PEM). */
+const APPLE_KEYS = (await crypto.subtle.generateKey(
+  { name: "ECDSA", namedCurve: "P-256" },
+  true,
+  ["sign", "verify"],
+)) as CryptoKeyPair;
+const APPLE_PEM = `-----BEGIN PRIVATE KEY-----\n${btoa(
+  String.fromCharCode(
+    ...new Uint8Array(
+      (await crypto.subtle.exportKey(
+        "pkcs8",
+        APPLE_KEYS.privateKey,
+      )) as ArrayBuffer,
+    ),
+  ),
+)}\n-----END PRIVATE KEY-----\n`;
 const ENV = {
   SESSION_SECRET: "session-secret",
   EMAIL_PEPPER: "pepper",
@@ -20,6 +37,10 @@ const ENV = {
   GOOGLE_CLIENT_SECRET: "gsecret",
   GITHUB_CLIENT_ID: "hid",
   GITHUB_CLIENT_SECRET: "hsecret",
+  APPLE_CLIENT_ID: "page.irl.test",
+  APPLE_TEAM_ID: "TEAM123456",
+  APPLE_KEY_ID: "KEY1234567",
+  APPLE_PRIVATE_KEY: APPLE_PEM,
 } as Env;
 
 /** A tiny browser: one cookie jar, same-origin requests. */
@@ -36,13 +57,24 @@ function client(deps: Deps, env: Env = ENV) {
       headers.set("cookie", [...jar].map(([k, v]) => `${k}=${v}`).join("; "));
     }
     if (method !== "GET") headers.set("origin", origin);
-    if (body !== undefined) headers.set("content-type", "application/json");
+    const form = body instanceof URLSearchParams;
+    if (body !== undefined) {
+      headers.set(
+        "content-type",
+        form ? "application/x-www-form-urlencoded" : "application/json",
+      );
+    }
     const url = new URL(path, ORIGIN);
     const response = await handleApi(
       new Request(url, {
         method,
         headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body:
+          body === undefined
+            ? undefined
+            : form
+              ? body.toString()
+              : JSON.stringify(body),
       }),
       env,
       url,
@@ -86,7 +118,7 @@ describe("sessions and avatars", () => {
     const before = (await (await browser.get("/api/me")).json()) as MeResponse;
     expect(before).toEqual({
       user: null,
-      auth: { google: true, github: true, dev: true },
+      auth: { google: true, github: true, apple: true, dev: true },
       demo: false,
     });
 
@@ -252,6 +284,157 @@ describe("OAuth sign-in", () => {
     const response = await signIn(browser, "google");
     expect(response.headers.get("location")).toBe(`${ORIGIN}/?error=email`);
     expect(await db.list("people")).toHaveLength(0);
+  });
+});
+
+describe("Sign in with Apple", () => {
+  const APPLE = "https://appleid.apple.com";
+  const decode = (part: string) =>
+    JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/"))) as Record<
+      string,
+      unknown
+    >;
+  const encode = (value: unknown) =>
+    btoa(JSON.stringify(value))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+  const idToken = (claims: Record<string, unknown>) =>
+    `${encode({ alg: "RS256" })}.${encode({
+      iss: APPLE,
+      aud: "page.irl.test",
+      exp: Math.floor(Date.now() / 1000) + 600,
+      ...claims,
+    })}.signature`;
+
+  /** Apple's token endpoint: checks the client secret, returns an id token. */
+  function apple(claims: Record<string, unknown>): typeof fetch {
+    return async (input, init) => {
+      if (String(input) !== `${APPLE}/auth/token`) {
+        return new Response("unexpected", { status: 500 });
+      }
+      const body = new URLSearchParams(String(init?.body));
+      const [header, payload, signature] = body
+        .get("client_secret")!
+        .split(".");
+      const signed = await crypto.subtle.verify(
+        { name: "ECDSA", hash: "SHA-256" },
+        APPLE_KEYS.publicKey,
+        Uint8Array.from(
+          atob(signature.replace(/-/g, "+").replace(/_/g, "/")),
+          (char) => char.charCodeAt(0),
+        ),
+        new TextEncoder().encode(`${header}.${payload}`),
+      );
+      const secret = decode(payload);
+      if (
+        !signed ||
+        decode(header).kid !== "KEY1234567" ||
+        secret.iss !== "TEAM123456" ||
+        secret.sub !== "page.irl.test" ||
+        secret.aud !== APPLE ||
+        body.get("client_id") !== "page.irl.test" ||
+        body.get("redirect_uri") !== `${ORIGIN}/api/auth/apple/callback`
+      ) {
+        return Response.json({ error: "invalid_client" }, { status: 400 });
+      }
+      return Response.json({ id_token: idToken(claims) });
+    };
+  }
+
+  /** Apple returns with a form POST from its own site. */
+  async function signIn(browser: ReturnType<typeof client>, state?: string) {
+    const login = await browser.get(
+      "/api/auth/apple/login?next=/ticket/abc12345",
+    );
+    const consent = new URL(login.headers.get("location")!);
+    return browser.send(
+      "POST",
+      "/api/auth/apple/callback",
+      new URLSearchParams({
+        code: "c",
+        state: state ?? consent.searchParams.get("state")!,
+      }),
+      APPLE,
+    );
+  }
+
+  it("asks only for the email, and expects a form POST back", async () => {
+    const browser = client({ db: memoryDatastore() });
+    const login = await browser.get("/api/auth/apple/login");
+    const consent = new URL(login.headers.get("location")!);
+    expect(consent.origin + consent.pathname).toBe(`${APPLE}/auth/authorize`);
+    expect(consent.searchParams.get("client_id")).toBe("page.irl.test");
+    expect(consent.searchParams.get("scope")).toBe("email");
+    expect(consent.searchParams.get("response_type")).toBe("code");
+    expect(consent.searchParams.get("response_mode")).toBe("form_post");
+    // A Lax cookie wouldn't come back on Apple's cross-site POST.
+    expect(login.headers.get("set-cookie")).toMatch(
+      /^irl_oauth_state=.*SameSite=None.*Secure/,
+    );
+  });
+
+  it("signs in with the verified email, the same person as on Google", async () => {
+    const db = memoryDatastore();
+    // Already signed up through Google, with the same address.
+    await personForEmail(db, "Pat@Example.com", "pepper", "2026-01-01");
+    const browser = client({
+      db,
+      fetch: apple({ email: "pat@example.com", email_verified: "true" }),
+    });
+    const response = await signIn(browser);
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(`${ORIGIN}/ticket/abc12345`);
+    const me = (await (await browser.get("/api/me")).json()) as MeResponse;
+    expect(me.user?.oauthPicture).toBeNull();
+    const people = await db.list("people");
+    expect(people).toHaveLength(1);
+    expect(me.user?.id).toBe(people[0].id);
+    expect(JSON.stringify([...db.tables.people.values()])).not.toMatch(
+      /example\.com/,
+    );
+  });
+
+  it("refuses a token for another client, expired, or unverified", async () => {
+    for (const claims of [
+      { email: "pat@example.com", email_verified: true, aud: "someone.else" },
+      { email: "pat@example.com", email_verified: true, exp: 1 },
+      { email: "pat@example.com", email_verified: "false" },
+      { email_verified: true },
+    ]) {
+      const db = memoryDatastore();
+      const response = await signIn(client({ db, fetch: apple(claims) }));
+      expect(response.headers.get("location")).toBe(`${ORIGIN}/?error=email`);
+      expect(await db.list("people")).toHaveLength(0);
+    }
+  });
+
+  it("rejects a return whose state doesn't match", async () => {
+    const browser = client({
+      db: memoryDatastore(),
+      fetch: apple({ email: "pat@example.com", email_verified: true }),
+    });
+    const response = await signIn(browser, "wrong");
+    expect(response.headers.get("location")).toBe(`${ORIGIN}/?error=state`);
+    expect(browser.jar.has("irl_session")).toBe(false);
+  });
+
+  it("takes cross-site POSTs only at Apple's return", async () => {
+    const browser = client({ db: memoryDatastore() });
+    expect((await browser.get("/api/auth/apple/callback")).status).toBe(405);
+    for (const path of ["/api/auth/google/callback", "/api/auth/logout"]) {
+      expect((await browser.send("POST", path, {}, APPLE)).status).toBe(403);
+    }
+  });
+
+  it("isn't offered unless every Apple value is set", async () => {
+    const browser = client(
+      { db: memoryDatastore() },
+      { ...ENV, APPLE_PRIVATE_KEY: undefined },
+    );
+    const me = (await (await browser.get("/api/me")).json()) as MeResponse;
+    expect(me.auth.apple).toBe(false);
+    expect((await browser.get("/api/auth/apple/login")).status).toBe(404);
   });
 });
 

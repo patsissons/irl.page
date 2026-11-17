@@ -1,5 +1,11 @@
 import { randomId } from "../shared/ids";
 import type { AuthOptions } from "../shared/types";
+import {
+  APPLE_ISSUER,
+  appleClientSecret,
+  appleConfig,
+  appleEmail,
+} from "./apple";
 import { DEMO_READ_ONLY, isDemo, type DemoRole } from "./demo";
 import type { Env } from "./env";
 import { fail, json, readJson, redirect, safeNext, type Ctx } from "./http";
@@ -16,7 +22,7 @@ import {
 } from "./session";
 import { personForEmail, publicUser } from "./users";
 
-export type Provider = "google" | "github";
+export type Provider = "google" | "github" | "apple";
 
 interface Identity {
   /** A verified email, used only to derive the stored hash. */
@@ -38,6 +44,12 @@ const ENDPOINTS = {
     emails: "https://api.github.com/user/emails",
     scope: "read:user user:email",
   },
+  apple: {
+    authorize: `${APPLE_ISSUER}/auth/authorize`,
+    token: `${APPLE_ISSUER}/auth/token`,
+    // Only the email: the name Apple offers is never needed or kept.
+    scope: "email",
+  },
 } as const;
 
 function credentials(
@@ -46,6 +58,11 @@ function credentials(
 ): { id: string; secret: string } | null {
   // The demo has no real people, so no way for one to sign in.
   if (isDemo(env)) return null;
+  if (provider === "apple") {
+    // Apple's secret is minted for each sign-in from the key (./apple).
+    const apple = appleConfig(env);
+    return apple ? { id: apple.clientId, secret: "" } : null;
+  }
   const [id, secret] =
     provider === "google"
       ? [env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET]
@@ -61,6 +78,7 @@ export function authOptions(env: Env): AuthOptions {
   return {
     google: credentials(env, "google") !== null,
     github: credentials(env, "github") !== null,
+    apple: credentials(env, "apple") !== null,
     dev: devLogin(env),
   };
 }
@@ -80,11 +98,16 @@ export function handleLogin(ctx: Ctx, provider: Provider): Response {
   target.searchParams.set("redirect_uri", callbackUrl(ctx.url, provider));
   target.searchParams.set("scope", ENDPOINTS[provider].scope);
   target.searchParams.set("state", state);
-  if (provider === "google") target.searchParams.set("response_type", "code");
+  if (provider !== "github") target.searchParams.set("response_type", "code");
+  // Asking Apple for the email makes it return with a form POST from its
+  // own site, which a SameSite=Lax cookie would not come back on.
+  const apple = provider === "apple";
+  if (apple) target.searchParams.set("response_mode", "form_post");
   return redirect(target.toString(), [
     cookieHeader(STATE_COOKIE, `${state}.${encodeURIComponent(next)}`, {
       maxAge: STATE_MAX_AGE,
       secure: isSecure(ctx.url),
+      sameSite: apple ? "None" : "Lax",
     }),
   ]);
 }
@@ -161,6 +184,30 @@ async function githubIdentity(
   return { email: email.email, picture: user.avatar_url ?? null };
 }
 
+async function appleIdentity(ctx: Ctx, code: string): Promise<Identity | null> {
+  const config = appleConfig(ctx.env);
+  if (!config) return null;
+  const exchange = await ctx.fetch(ENDPOINTS.apple.token, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      client_id: config.clientId,
+      client_secret: await appleClientSecret(config, ctx.now()),
+      code,
+      grant_type: "authorization_code",
+      redirect_uri: callbackUrl(ctx.url, "apple"),
+    }),
+  });
+  if (!exchange.ok) return null;
+  const { id_token } = (await exchange.json()) as { id_token?: unknown };
+  const email = appleEmail(id_token, config.clientId, ctx.now());
+  // Apple shares no picture.
+  return email ? { email, picture: null } : null;
+}
+
 /** The Set-Cookie header for a session. */
 export async function startSession(
   ctx: Ctx,
@@ -179,7 +226,10 @@ export async function startSession(
   });
 }
 
-/** GET /api/auth/<provider>/callback?code&state -> session cookie, then the app. */
+/**
+ * GET /api/auth/<provider>/callback?code&state -> session cookie, then the
+ * app. Apple POSTs the same fields as a form instead.
+ */
 export async function handleCallback(
   ctx: Ctx,
   provider: Provider,
@@ -190,8 +240,12 @@ export async function handleCallback(
     redirect(`${url.origin}/?error=${reason}`, [clearState]);
 
   const client = credentials(ctx.env, provider);
-  const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
+  const params =
+    ctx.request.method === "POST"
+      ? new URLSearchParams(await ctx.request.text())
+      : url.searchParams;
+  const code = params.get("code");
+  const state = params.get("state");
   const stored = parseCookies(ctx.request.headers.get("cookie"))[STATE_COOKIE];
   if (!client || !code || !state || !stored) return failed("auth");
   const [expected, next = ""] = stored.split(".");
@@ -200,7 +254,9 @@ export async function handleCallback(
   const identity =
     provider === "google"
       ? await googleIdentity(ctx, client, code)
-      : await githubIdentity(ctx, client, code);
+      : provider === "github"
+        ? await githubIdentity(ctx, client, code)
+        : await appleIdentity(ctx, code);
   // No verified email, no stable identity to hash.
   if (!identity) return failed("email");
 

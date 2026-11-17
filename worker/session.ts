@@ -107,16 +107,18 @@ export function parseCookies(header: string | null): Record<string, string> {
 export function cookieHeader(
   name: string,
   value: string,
-  options: { maxAge: number; secure: boolean },
+  options: { maxAge: number; secure: boolean; sameSite?: "Lax" | "None" },
 ): string {
+  const sameSite = options.sameSite ?? "Lax";
   const parts = [
     `${name}=${value}`,
     "Path=/",
     "HttpOnly",
-    "SameSite=Lax",
+    `SameSite=${sameSite}`,
     `Max-Age=${options.maxAge}`,
   ];
-  if (options.secure) parts.push("Secure");
+  // Browsers drop a SameSite=None cookie that isn't Secure.
+  if (options.secure || sameSite === "None") parts.push("Secure");
   return parts.join("; ");
 }
 

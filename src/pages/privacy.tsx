@@ -39,19 +39,27 @@ export function Privacy() {
 
       <Section title="Signing in">
         <p>
-          You sign in with Google or GitHub. We ask Google for your email
+          You sign in with Apple, Google or GitHub. We ask Google for your email
           address, your profile picture and a sign-in id (the{" "}
           <code>openid</code>, <code>email</code> and <code>profile</code>{" "}
           scopes), and GitHub for the same through <code>read:user</code> and{" "}
-          <code>user:email</code>. We only accept an email the provider has
-          verified.
+          <code>user:email</code>. We ask Apple only for your email (the{" "}
+          <code>email</code> scope): not your name, and Apple shares no picture.
+          We only accept an email the provider has verified.
         </p>
         <p>
           Your email is used once, on our server, to compute a one-way
           fingerprint (a keyed hash) that recognises you next time. The
           fingerprint is stored; the email is not, and it is never logged or
-          shown to anyone. Your profile picture is kept in your session cookie
-          and is saved only if you choose it as your avatar.
+          shown to anyone. A Google or GitHub profile picture is kept in your
+          session cookie and is saved only if you choose it as your avatar.
+        </p>
+        <p>
+          If you use Apple&apos;s Hide My Email, Apple gives us a private relay
+          address instead, and that is what we fingerprint. It stays the same
+          each time, so Apple keeps signing you in to the same account, but that
+          account is separate from one made with your real address through
+          Google or GitHub.
         </p>
         <p>
           IRL Page&apos;s use of information received from Google APIs adheres

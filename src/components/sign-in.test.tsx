@@ -25,7 +25,7 @@ function show(auth: AuthOptions, demo = false) {
 
 describe("SignIn", () => {
   it("links each configured provider, carrying where to return to", () => {
-    show({ google: true, github: true, dev: false });
+    show({ google: true, github: true, apple: true, dev: false });
     expect(
       screen.getByRole("link", { name: "Continue with Google" }),
     ).toHaveAttribute(
@@ -38,28 +38,37 @@ describe("SignIn", () => {
       "href",
       "/api/auth/github/login?next=%2Fticket%2Fasdf1234",
     );
+    expect(
+      screen.getByRole("link", { name: "Continue with Apple" }),
+    ).toHaveAttribute(
+      "href",
+      "/api/auth/apple/login?next=%2Fticket%2Fasdf1234",
+    );
     expect(screen.queryByText("Local development")).toBeNull();
   });
 
   it("links the privacy policy", () => {
-    show({ google: true, github: false, dev: false });
+    show({ google: true, github: false, apple: false, dev: false });
     expect(
       screen.getByRole("link", { name: "How we handle your data" }),
     ).toHaveAttribute("href", "/privacy");
   });
 
   it("hides providers that aren't configured", () => {
-    show({ google: false, github: true, dev: false });
+    show({ google: false, github: true, apple: false, dev: false });
     expect(
       screen.queryByRole("link", { name: "Continue with Google" }),
     ).toBeNull();
     expect(
       screen.getByRole("link", { name: "Continue with GitHub" }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Continue with Apple" }),
+    ).toBeNull();
   });
 
   it("offers only made-up people on the demo site", () => {
-    show({ google: false, github: false, dev: true }, true);
+    show({ google: false, github: false, apple: false, dev: true }, true);
     expect(screen.getByText("Demo people")).toBeInTheDocument();
     expect(screen.getByText(/there are no accounts/)).toBeInTheDocument();
     expect(screen.queryByText(/your email/)).toBeNull();
@@ -70,7 +79,7 @@ describe("SignIn", () => {
   });
 
   it("says so when no sign-in is set up", () => {
-    show({ google: false, github: false, dev: false });
+    show({ google: false, github: false, apple: false, dev: false });
     expect(screen.getByText(/isn't set up/)).toBeInTheDocument();
   });
 });

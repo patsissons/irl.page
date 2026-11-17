@@ -77,6 +77,9 @@ export const api = {
   graph: () => call<GraphData>("/api/graph"),
 };
 
-export function loginUrl(provider: "google" | "github", next: string): string {
+export function loginUrl(
+  provider: "google" | "github" | "apple",
+  next: string,
+): string {
   return `/api/auth/${provider}/login?next=${encodeURIComponent(next)}`;
 }

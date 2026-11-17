@@ -14,7 +14,8 @@ choose).
 
 ## How it works
 
-- **Sign-in** is OAuth (Google or GitHub), handled entirely in the Worker.
+- **Sign-in** is OAuth (Apple, Google or GitHub), handled entirely in the
+  Worker.
   The email is used once, to compute a keyed, deliberately slow hash
   (`HMAC-SHA256(email, EMAIL_PEPPER)` stretched with 2,000,000 iterations of
   PBKDF2-HMAC-SHA512, see `shared/hash.ts`), and
@@ -127,6 +128,18 @@ and put their ids and secrets in `.dev.vars`:
 
 A provider without a client id is simply not offered.
 
+Sign in with Apple needs an Apple Developer Program membership and can't
+return to `localhost`, so it only works on a registered https origin. In
+Certificates, Identifiers & Profiles: an App ID with Sign in with Apple
+(`page.irl`), a Services ID grouped with it (`page.irl.web`, the
+`APPLE_CLIENT_ID`) whose website is the domain and
+`<origin>/api/auth/apple/callback`, and a Sign in with Apple key (its id is
+`APPLE_KEY_ID`, its `.p8` file is `APPLE_PRIVATE_KEY`). `APPLE_TEAM_ID` is
+the team id. There is no fixed client secret: the Worker signs a short-lived
+one with the key for each sign-in (`worker/apple.ts`). Apple returns with a
+form POST from `appleid.apple.com`, so that one callback accepts a
+cross-site POST and its state cookie is `SameSite=None`.
+
 ## Scripts
 
 - `pnpm dev`: PocketBase and the app together
@@ -208,6 +221,9 @@ pnpm exec wrangler secret put POCKETBASE_URL
 - The OAuth client ids and secrets come from apps whose callbacks are
   `https://irl.page/api/auth/google/callback` and
   `https://irl.page/api/auth/github/callback`.
+- Apple's values are `APPLE_CLIENT_ID=page.irl.web`, `APPLE_TEAM_ID`,
+  `APPLE_KEY_ID` and the key itself:
+  `pnpm exec wrangler secret put APPLE_PRIVATE_KEY < AuthKey_<key id>.p8`.
 - Google won't publish the OAuth app (Google Auth Platform → Audience)
   until Branding has a home page and a privacy policy link:
   `https://irl.page` and `https://irl.page/privacy`. The scopes (`openid`,

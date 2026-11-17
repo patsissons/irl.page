@@ -10,8 +10,15 @@ describe("Privacy", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/the email is not/)).toBeInTheDocument();
     for (const scope of ["openid", "email", "profile"]) {
-      expect(screen.getByText(scope, { selector: "code" })).toBeInTheDocument();
+      expect(
+        screen.getAllByText(scope, { selector: "code" }).length,
+      ).toBeGreaterThan(0);
     }
+  });
+
+  it("explains what Apple's Hide My Email means for an account", () => {
+    render(<Privacy />);
+    expect(screen.getByText(/private relay address/)).toBeInTheDocument();
   });
 
   it("links Google's user data policy and a way to get in touch", () => {

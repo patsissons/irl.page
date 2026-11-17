@@ -120,7 +120,7 @@ describe("the demo site", () => {
     const me = await browser.get<MeResponse>("/api/me");
     expect(me).toEqual({
       user: null,
-      auth: { google: false, github: false, dev: true },
+      auth: { google: false, github: false, apple: false, dev: true },
       demo: true,
     });
     expect(await browser.people()).toHaveLength(12);
