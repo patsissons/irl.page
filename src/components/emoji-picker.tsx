@@ -151,7 +151,9 @@ export default function EmojiPicker({
             <h3 className="sticky top-0 z-10 bg-background px-3 py-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
               {GROUPS[group]}
             </h3>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] px-1.5 pb-2">
+            {/* A gap, and room under the heading, so no button touches
+                another's ring or tucks under the sticky heading. */}
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] gap-1 px-1.5 pt-1 pb-2">
               {emoji.map((entry) => {
                 const glyph = shown(entry, tone);
                 return (
@@ -164,7 +166,10 @@ export default function EmojiPicker({
                     onClick={() => onChange(glyph)}
                     className={cn(
                       "flex size-10 cursor-pointer items-center justify-center rounded-lg text-2xl transition hover:bg-muted",
-                      value === glyph && "bg-secondary ring-1 ring-primary",
+                      // Inside the button: the same size and shape as the
+                      // hover, and nothing for a neighbour to cover.
+                      value === glyph &&
+                        "bg-secondary ring-1 ring-primary ring-inset",
                     )}
                   >
                     {glyph}
