@@ -52,6 +52,29 @@ test("sign-in links the privacy policy", async ({ page }) => {
   await expectNoHorizontalScroll(page);
 });
 
+test("the sign-in logos line up", async ({ page }) => {
+  // e2e has no OAuth apps, so pretend all three are set up.
+  await page.route("**/api/me", (route) =>
+    route.fulfill({
+      json: {
+        user: null,
+        auth: { google: true, apple: true, github: true, dev: false },
+        demo: false,
+      },
+    }),
+  );
+  await page.goto("/tickets");
+  const links = page.getByRole("link", { name: /^Continue with/ });
+  await expect(links).toHaveCount(3);
+  const lefts = await Promise.all(
+    [0, 1, 2].map(
+      async (i) => (await links.nth(i).locator("svg").boundingBox())!.x,
+    ),
+  );
+  expect(new Set(lefts).size).toBe(1);
+  await expectNoHorizontalScroll(page);
+});
+
 test("the scanner accepts a typed code", async ({ page }) => {
   await page.goto("/scan");
   await page.getByLabel("Or enter the ticket code").fill("not a code");
