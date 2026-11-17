@@ -83,10 +83,13 @@ jobs:
       - uses: actions/checkout@v5
 
       # Nothing is installed from the lockfile: the script runs a pinned
-      # PocketHost CLI through npx.
+      # PocketHost CLI through npx. setup-node would otherwise see the
+      # packageManager field and try to cache with pnpm, which this job
+      # never installs.
       - uses: actions/setup-node@v5
         with:
           node-version: 24
+          package-manager-cache: false
 
       - name: Deploy to PocketHost
         env:

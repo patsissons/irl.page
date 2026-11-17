@@ -59,6 +59,13 @@ then deploys the Worker to `irl.page` (`deploy-worker`).
   kept. The hash never leaves the Worker either: the public id of a person
   is their record id. The OAuth picture lives in the sealed session cookie
   and is stored only if the person picks it as their avatar.
+- **The email hash is frozen.** It is the only way a returning person is
+  matched to their account, and there is no email on file to recompute it
+  from. Changing anything that feeds it (the HMAC, the PBKDF2 hash, salt,
+  iterations or `EMAIL_HASH_ROUNDS` in `shared/hash.ts`, or `EMAIL_PEPPER`)
+  orphans every account. `shared/hash.test.ts` pins a known value; if it
+  fails, revert the change, don't update the test. It is slow on purpose
+  (about half a second), so tests and the seed pass `rounds = 1`.
 - **The Worker is the only database client.** Every collection rule is null
   (superuser only) and the browser talks only to `/api`. All access goes
   through the `Datastore` interface (`shared/db.ts`); don't call PocketBase
