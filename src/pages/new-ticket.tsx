@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePosition } from "@/hooks/use-position";
+import { useSession } from "@/lib/session";
 import { api, ApiFailure } from "@/lib/api";
 
 const VenueMap = lazy(() => import("@/components/venue-map"));
@@ -73,6 +74,7 @@ function Picker({ position }: { position: Position }) {
   const [matches, setMatches] = useState<AddressResult[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [busy, setBusy] = useState(false);
+  const { demo } = useSession();
   const [error, setError] = useState<string | null>(null);
 
   const spot: LatLng = pin ?? position;
@@ -142,6 +144,12 @@ function Picker({ position }: { position: Position }) {
 
   return (
     <div className="grid gap-4">
+      {demo && (
+        <p role="note" className="text-sm text-muted-foreground">
+          This is the demo: whichever venue you pick, you&apos;ll land on the
+          same sample ticket.
+        </p>
+      )}
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}

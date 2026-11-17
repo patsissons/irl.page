@@ -1,3 +1,5 @@
+import type { DemoRole } from "./demo";
+
 export const SESSION_COOKIE = "irl_session";
 export const STATE_COOKIE = "irl_oauth_state";
 export const SESSION_MAX_AGE = 30 * 24 * 3600;
@@ -11,6 +13,8 @@ export interface SessionPayload {
    * cookie, and reaches the database only if the person picks it.
    */
   picture: string | null;
+  /** Demo site only: what this visitor has done with the demo ticket. */
+  demo?: DemoRole;
 }
 
 const encoder = new TextEncoder();
@@ -81,6 +85,9 @@ export async function openSession(
     return {
       uid: payload.uid,
       picture: typeof payload.picture === "string" ? payload.picture : null,
+      ...(payload.demo === "creator" || payload.demo === "joined"
+        ? { demo: payload.demo }
+        : {}),
     };
   } catch {
     return null;

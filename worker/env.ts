@@ -17,6 +17,12 @@ export interface Env {
   GITHUB_CLIENT_SECRET?: string;
   /** "1" enables the seed-user sign-in picker. Local development only. */
   DEV_LOGIN?: string;
+  /**
+   * "1" makes this the demo site (worker/demo.ts): a fixed made-up world,
+   * read-only, seed-user sign-in only. None of the values above except
+   * SESSION_SECRET are used then.
+   */
+  DEMO?: string;
   /** "off" skips the OpenStreetMap lookups. */
   OSM_LOOKUP?: string;
 }

@@ -16,6 +16,8 @@ import { useSession } from "@/lib/session";
 import { canShare, shareTicket } from "@/lib/share";
 
 const POLL_MS = 3000;
+/** What the demo sends as a position; its Worker doesn't look at it. */
+const NOWHERE = { lat: 0, lng: 0, accuracy: 0 };
 
 /**
  * One ticket. While it is open this is the invitation: the creator shows the
@@ -23,7 +25,7 @@ const POLL_MS = 3000;
  */
 export function TicketPage() {
   const { code = "" } = useParams();
-  const { loading, user } = useSession();
+  const { loading, user, demo } = useSession();
   const navigate = useNavigate();
   const [ticket, setTicket] = useState<TicketView | null>(null);
   const [missing, setMissing] = useState(false);
@@ -60,10 +62,11 @@ export function TicketPage() {
 
   // Joining needs a confirmed location: a link or a photo of the QR code
   // can reach someone who isn't here. Only asked of people who could join.
+  // The demo skips all of it: its one ticket is wherever it is.
   const joining = Boolean(open && user?.onboarded && !member);
-  const location = usePosition(joining);
+  const location = usePosition(joining && !demo);
   const away =
-    ticket && location.position
+    ticket && location.position && !demo
       ? distanceFromVenue(location.position, ticket.venue)
       : null;
   const tooFar = away !== null && away > PRESENT_RADIUS_M;
@@ -145,10 +148,17 @@ export function TicketPage() {
 
         {joining && (
           <>
-            <LocationBanner
-              location={location}
-              reason="Joining a ticket means you were there, so we need your location to check you're at the venue."
-            />
+            {demo ? (
+              <p className="text-center text-sm text-muted-foreground">
+                On the real site you have to be at the venue to join. The demo
+                lets you in from anywhere.
+              </p>
+            ) : (
+              <LocationBanner
+                location={location}
+                reason="Joining a ticket means you were there, so we need your location to check you're at the venue."
+              />
+            )}
             {tooFar && away !== null && (
               <p role="alert" className="text-center text-sm text-destructive">
                 You&apos;re about {formatDistance(away)} from{" "}
@@ -157,9 +167,9 @@ export function TicketPage() {
             )}
             <Button
               size="lg"
-              disabled={busy || !location.position || tooFar}
+              disabled={busy || (!demo && (!location.position || tooFar))}
               onClick={() => {
-                const at = location.position;
+                const at = location.position ?? (demo ? NOWHERE : null);
                 if (at) void act(() => api.join(code, { at }));
               }}
             >
@@ -191,15 +201,17 @@ export function TicketPage() {
           <>
             <Button
               size="lg"
-              disabled={busy || party === 0}
+              disabled={busy || party === 0 || demo}
               onClick={() => act(() => api.submit(code))}
             >
               <Send /> Submit ticket
             </Button>
             <p className="text-center text-sm text-muted-foreground">
-              {party === 0
-                ? "Have someone scan the code to join. A ticket needs at least two people."
-                : "Submitting makes the ticket final. Nobody can join or leave after that."}
+              {demo
+                ? "On the real site, submitting makes the ticket final and adds everyone on it to the graph. The demo's ticket stays open."
+                : party === 0
+                  ? "Have someone scan the code to join. A ticket needs at least two people."
+                  : "Submitting makes the ticket final. Nobody can join or leave after that."}
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               {sharable && (

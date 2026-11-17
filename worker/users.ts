@@ -31,8 +31,10 @@ export async function personForEmail(
   email: string,
   pepper: string,
   now: string,
+  /** Only for throwaway addresses; see emailHash. */
+  rounds?: number,
 ): Promise<PersonRec> {
-  const hash = await emailHash(email, pepper);
+  const hash = await emailHash(email, pepper, rounds);
   const [existing] = await db.list("people", {
     where: [{ field: "email_hash", op: "=", value: hash }],
     limit: 1,

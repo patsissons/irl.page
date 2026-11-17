@@ -2,6 +2,7 @@ import { validateAvatar } from "../shared/avatar";
 import type { PersonRec } from "../shared/db";
 import type { Me, MeResponse } from "../shared/types";
 import { authOptions } from "./auth";
+import { DEMO_READ_ONLY } from "./demo";
 import { fail, json, readJson, type Ctx } from "./http";
 import { currentUser, publicUser } from "./users";
 
@@ -19,6 +20,7 @@ export async function handleMe(ctx: Ctx): Promise<Response> {
   const body: MeResponse = {
     user: signed ? me(signed.person, signed.session.picture) : null,
     auth: authOptions(ctx.env),
+    demo: ctx.demo,
   };
   return json(body);
 }
@@ -27,6 +29,7 @@ export async function handleMe(ctx: Ctx): Promise<Response> {
 export async function handleAvatar(ctx: Ctx): Promise<Response> {
   const signed = await currentUser(ctx);
   if (!signed) return fail(401, "sign in first");
+  if (ctx.demo) return fail(403, DEMO_READ_ONLY);
   const avatar = validateAvatar(
     await readJson(ctx.request),
     signed.session.picture,

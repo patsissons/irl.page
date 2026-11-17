@@ -39,9 +39,21 @@ export function AppShell({
   children: ReactNode;
   bleed?: boolean;
 }) {
-  const { user } = useSession();
+  const { user, demo } = useSession();
   return (
     <div className="flex min-h-dvh flex-col">
+      {demo && (
+        <p
+          role="note"
+          className="safe-x shrink-0 bg-primary py-1.5 text-center text-xs font-medium text-primary-foreground"
+        >
+          Demo: everyone and everything here is made up, and nothing you do is
+          saved.{" "}
+          <a href="https://irl.page" className="underline underline-offset-2">
+            Go to the real IRL Page
+          </a>
+        </p>
+      )}
       <header className="safe-x sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b bg-background/90 backdrop-blur">
         <Logo />
         <nav aria-label="Main" className="ml-4 hidden gap-1 sm:flex">

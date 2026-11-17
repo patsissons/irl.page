@@ -87,6 +87,7 @@ describe("sessions and avatars", () => {
     expect(before).toEqual({
       user: null,
       auth: { google: true, github: true, dev: true },
+      demo: false,
     });
 
     await browser.post("/api/auth/dev", { fresh: true });

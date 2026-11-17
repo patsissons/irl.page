@@ -28,6 +28,8 @@ export interface AuthOptions {
 export interface MeResponse {
   user: Me | null;
   auth: AuthOptions;
+  /** True on the demo site: made-up data that nothing can change. */
+  demo: boolean;
 }
 
 export interface VenueDraft {

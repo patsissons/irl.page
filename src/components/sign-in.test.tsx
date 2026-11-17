@@ -4,10 +4,16 @@ import type { AuthOptions } from "@shared/types";
 import { SessionContext } from "@/lib/session";
 import { SignIn } from "./sign-in";
 
-function show(auth: AuthOptions) {
+function show(auth: AuthOptions, demo = false) {
   return render(
     <SessionContext.Provider
-      value={{ loading: false, user: null, auth, refresh: async () => {} }}
+      value={{
+        loading: false,
+        user: null,
+        auth,
+        demo,
+        refresh: async () => {},
+      }}
     >
       <SignIn next="/ticket/asdf1234" />
     </SessionContext.Provider>,
@@ -40,6 +46,17 @@ describe("SignIn", () => {
     expect(
       screen.getByRole("link", { name: "Continue with GitHub" }),
     ).toBeInTheDocument();
+  });
+
+  it("offers only made-up people on the demo site", () => {
+    show({ google: false, github: false, dev: true }, true);
+    expect(screen.getByText("Demo people")).toBeInTheDocument();
+    expect(screen.getByText(/there are no accounts/)).toBeInTheDocument();
+    expect(screen.queryByText(/your email/)).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Sign in as a new person" }),
+    ).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("says so when no sign-in is set up", () => {

@@ -9,6 +9,8 @@ export interface Ctx {
   db: Datastore;
   fetch: typeof fetch;
   now: () => Date;
+  /** The demo site: `db` is a fixed read-only world and `now` is stopped. */
+  demo: boolean;
   /** Rasterises an SVG to PNG. */
   png: (svg: string) => Promise<Uint8Array>;
 }

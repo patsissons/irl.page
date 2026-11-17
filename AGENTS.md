@@ -66,6 +66,15 @@ then deploys the Worker to `irl.page` (`deploy-worker`).
   orphans every account. `shared/hash.test.ts` pins a known value; if it
   fails, revert the change, don't update the test. It is slow on purpose
   (about half a second), so tests and the seed pass `rounds = 1`.
+- **The demo site changes nothing and reaches nothing real.** With
+  `DEMO=1` (`worker/demo.ts`, the `demo` environment in `wrangler.jsonc`)
+  the Worker serves a made-up world built in memory with fixed ids and a
+  stopped clock. Its datastore refuses every write, OAuth is off, and it
+  has no database credentials or secrets. What a visitor does with the demo
+  ticket lives only in their session cookie. A new feature that writes
+  needs a demo answer (refuse it, or keep it in the session), and
+  `worker/demo.test.ts` checks the world is byte-for-byte unchanged
+  afterwards. Changing `shared/world.ts` changes the demo's world and ids.
 - **The Worker is the only database client.** Every collection rule is null
   (superuser only) and the browser talks only to `/api`. All access goes
   through the `Datastore` interface (`shared/db.ts`); don't call PocketBase
