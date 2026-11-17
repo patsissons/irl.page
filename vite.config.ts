@@ -7,6 +7,12 @@ import path from "node:path";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  // One dependency cache per environment. Dev servers that run side by side
+  // (local dev, the e2e server and the demo's e2e server) otherwise rewrite
+  // each other's pre-bundled dependencies, which reloads pages mid-test.
+  cacheDir: process.env.CLOUDFLARE_ENV
+    ? `node_modules/.vite-${process.env.CLOUDFLARE_ENV}`
+    : undefined,
   // The cloudflare plugin boots workerd, which unit tests don't need.
   plugins: [
     react(),
