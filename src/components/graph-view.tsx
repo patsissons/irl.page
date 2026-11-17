@@ -70,7 +70,11 @@ function personSprite(person: Node, focused: boolean): THREE.Object3D {
   const avatar = person.avatar ?? { kind: "blocky" as const, value: "" };
   const id = person.userId ?? person.id;
   const material = new THREE.SpriteMaterial({ depthWrite: false });
-  if (avatar.kind === "url" || avatar.kind === "oauth") {
+  if (
+    avatar.kind === "url" ||
+    avatar.kind === "oauth" ||
+    avatar.kind === "gravatar"
+  ) {
     // A picture needs CORS to become a texture; fall back to the blocky.
     material.map = loader.load(avatar.value, undefined, undefined, () => {
       material.map = drawnTexture({ kind: "blocky", value: "" }, id);

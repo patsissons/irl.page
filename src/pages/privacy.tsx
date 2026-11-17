@@ -55,6 +55,12 @@ export function Privacy() {
           session cookie and is saved only if you choose it as your avatar.
         </p>
         <p>
+          Your session cookie also holds the key Gravatar uses to find your
+          picture: a SHA-256 hash of your email. Because anyone can make that
+          hash from an address they already know, it stays sealed in the cookie,
+          is sent only to Gravatar, and is never stored, logged or shown.
+        </p>
+        <p>
           If you use Apple&apos;s Hide My Email, Apple gives us a private relay
           address instead, and that is what we fingerprint. It stays the same
           each time, so Apple keeps signing you in to the same account, but that
@@ -79,7 +85,8 @@ export function Privacy() {
         <ul className={list}>
           <li>
             <strong>Your account:</strong> the email fingerprint, the avatar you
-            pick (a generated pattern, an emoji, an image link, or your provider
+            pick (a generated pattern, an emoji, an image link, a small image
+            you paste in, a copy of your Gravatar picture, or your provider
             picture) and when you joined.
           </li>
           <li>
@@ -165,6 +172,15 @@ export function Privacy() {
               OpenFreeMap
             </a>{" "}
             serves the map tiles your browser loads on venue pages.
+          </li>
+          <li>
+            <a className={link} href="https://gravatar.com">
+              Gravatar
+            </a>
+            : when you open your avatar settings, our server sends Gravatar the
+            hash of your sign-in email to look up your picture. Your browser
+            never contacts Gravatar. If you choose that picture, we save a copy
+            of the image, not a link to it.
           </li>
           <li>
             An avatar that is a provider picture or an image link loads from

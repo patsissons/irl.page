@@ -15,6 +15,11 @@ export interface SessionPayload {
   picture: string | null;
   /** Demo site only: what this visitor has done with the demo ticket. */
   demo?: DemoRole;
+  /**
+   * The key Gravatar looks this person's picture up by (worker/gravatar.ts).
+   * It lives only here, sealed, and is only ever sent to Gravatar.
+   */
+  gravatar?: string;
 }
 
 const encoder = new TextEncoder();
@@ -87,6 +92,10 @@ export async function openSession(
       picture: typeof payload.picture === "string" ? payload.picture : null,
       ...(payload.demo === "creator" || payload.demo === "joined"
         ? { demo: payload.demo }
+        : {}),
+      ...(typeof payload.gravatar === "string" &&
+      /^[0-9a-f]{64}$/.test(payload.gravatar)
+        ? { gravatar: payload.gravatar }
         : {}),
     };
   } catch {

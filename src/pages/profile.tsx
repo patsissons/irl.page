@@ -1,7 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { LogOut } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router";
-import { isAvatarUrl, isEmoji } from "@shared/avatar";
+import { isAvatarUrl, isEmoji, MAX_DATA_URI } from "@shared/avatar";
 import type { Avatar as AvatarValue, AvatarKind } from "@shared/types";
 import { Avatar } from "@/components/avatar";
 import { SignIn } from "@/components/sign-in";
@@ -11,20 +11,8 @@ import { api, ApiFailure } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-const EMOJI = [
-  "🦊",
-  "🐙",
-  "🌵",
-  "🍕",
-  "🚀",
-  "🎸",
-  "🦉",
-  "🐝",
-  "🍉",
-  "🛼",
-  "🌈",
-  "🧋",
-];
+// Every emoji and its names: loaded only when the emoji choice is open.
+const EmojiPicker = lazy(() => import("@/components/emoji-picker"));
 
 function safeNext(next: string | null): string {
   return next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
@@ -83,6 +71,22 @@ export function Profile({ welcome = false }: { welcome?: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  /** undefined while asking, null when there is none. */
+  const [gravatar, setGravatar] = useState<string | null | undefined>();
+
+  // The Worker looks the Gravatar up; the key it uses never reaches here.
+  const canGravatar = Boolean(user?.gravatar);
+  useEffect(() => {
+    if (!canGravatar) return;
+    let live = true;
+    api
+      .gravatar()
+      .then(({ picture }) => live && setGravatar(picture))
+      .catch(() => live && setGravatar(null));
+    return () => {
+      live = false;
+    };
+  }, [canGravatar]);
 
   if (loading) return <Skeleton className="h-64 w-full" />;
   if (!user) {
@@ -108,7 +112,9 @@ export function Profile({ welcome = false }: { welcome?: boolean }) {
         ? { kind: "url", value: urlValue.trim() }
         : selected === "oauth"
           ? { kind: "oauth", value: user.oauthPicture ?? current.value }
-          : { kind: "blocky", value: "" };
+          : selected === "gravatar"
+            ? { kind: "gravatar", value: gravatar ?? current.value }
+            : { kind: "blocky", value: "" };
   const valid =
     selected === "emoji"
       ? isEmoji(draft.value)
@@ -116,7 +122,9 @@ export function Profile({ welcome = false }: { welcome?: boolean }) {
         ? isAvatarUrl(draft.value)
         : selected === "oauth"
           ? user.oauthPicture !== null
-          : true;
+          : selected === "gravatar"
+            ? Boolean(gravatar)
+            : true;
 
   async function save() {
     setSaving(true);
@@ -171,34 +179,11 @@ export function Profile({ welcome = false }: { welcome?: boolean }) {
           selected={selected}
           onSelect={setKind}
           title="Emoji"
-          hint="Any single emoji."
+          hint="Any emoji you like."
         >
-          <div className="flex flex-wrap gap-1.5">
-            {EMOJI.map((option) => (
-              <button
-                key={option}
-                type="button"
-                aria-label={`Use ${option}`}
-                aria-pressed={emojiValue === option}
-                onClick={() => setEmoji(option)}
-                className={cn(
-                  "size-10 cursor-pointer rounded-lg text-xl transition hover:bg-muted",
-                  emojiValue === option && "bg-secondary ring-1 ring-primary",
-                )}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-          <label className="mt-3 block text-sm">
-            <span className="text-muted-foreground">Or type your own</span>
-            <input
-              value={emojiValue}
-              onChange={(event) => setEmoji(event.target.value)}
-              aria-label="Emoji"
-              className="mt-1 block h-10 w-20 rounded-lg border border-input bg-background text-center text-xl"
-            />
-          </label>
+          <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+            <EmojiPicker value={emojiValue} onChange={setEmoji} />
+          </Suspense>
         </Choice>
         {user.oauthPicture && (
           <Choice
@@ -209,17 +194,26 @@ export function Profile({ welcome = false }: { welcome?: boolean }) {
             hint="The picture from the account you signed in with."
           />
         )}
+        {(gravatar || current.kind === "gravatar") && (
+          <Choice
+            kind="gravatar"
+            selected={selected}
+            onSelect={setKind}
+            title="Gravatar"
+            hint="The Gravatar for the address you signed in with. We save a copy of the picture, never the address."
+          />
+        )}
         <Choice
           kind="url"
           selected={selected}
           onSelect={setKind}
           title="Image link"
-          hint="Any https image. People who know it may recognise you."
+          hint={`Any https image, or a small image pasted as a data: URI (up to ${MAX_DATA_URI / 1024} KB). People who know it may recognise you.`}
         >
           <input
             type="url"
             inputMode="url"
-            placeholder="https://…"
+            placeholder="https://… or data:image/…"
             aria-label="Image link"
             value={urlValue}
             onChange={(event) => setUrl(event.target.value)}

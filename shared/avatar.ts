@@ -2,17 +2,39 @@ import type { Avatar } from "./types.ts";
 
 export const DEFAULT_AVATAR: Avatar = { kind: "blocky", value: "" };
 
-/** One visible character, and it has to be an emoji. */
+/**
+ * One visible character, and it has to be an emoji. U+20E3 lets in the
+ * keycaps (1️⃣, #️⃣), whose other parts aren't pictographic.
+ */
 export function isEmoji(value: string): boolean {
   if (value.length === 0 || value.length > 32) return false;
   const graphemes = [...new Intl.Segmenter().segment(value)];
   return (
     graphemes.length === 1 &&
-    /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(value)
+    /\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3/u.test(value)
   );
 }
 
+/**
+ * The longest data: URI an avatar may be. Every avatar is public in
+ * /api/graph, so this keeps that response from ballooning; 16 KB holds a
+ * 96px JPEG or WebP comfortably. It is also avatar_value's max in
+ * PocketBase (pocketbase/pb_migrations): change them together.
+ */
+export const MAX_DATA_URI = 16_384;
+
+/** No SVG: an image that is a document can carry script. */
+const DATA_URI =
+  /^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+
+/** A small raster image inlined as a base64 data: URI. */
+export function isImageData(value: string): boolean {
+  return value.length <= MAX_DATA_URI && DATA_URI.test(value);
+}
+
+/** An https image link, or a small image as a data: URI. */
 export function isAvatarUrl(value: string): boolean {
+  if (value.startsWith("data:")) return isImageData(value);
   if (value.length > 500) return false;
   try {
     return new URL(value).protocol === "https:";
@@ -21,10 +43,15 @@ export function isAvatarUrl(value: string): boolean {
   }
 }
 
-/** The avatar to store for a request, or null if it isn't acceptable. */
+/**
+ * The avatar to store for a request, or null if it isn't acceptable. The
+ * oauth and gravatar pictures are the ones the Worker got itself (at sign-in,
+ * and from Gravatar just now), never ones the client sends.
+ */
 export function validateAvatar(
   input: unknown,
   oauthPicture: string | null,
+  gravatarPicture: string | null = null,
 ): Avatar | null {
   if (!input || typeof input !== "object") return null;
   const { kind, value } = input as { kind?: unknown; value?: unknown };
@@ -40,6 +67,10 @@ export function validateAvatar(
       // Only the picture captured at sign-in, never one the client sends.
       return oauthPicture && isAvatarUrl(oauthPicture)
         ? { kind, value: oauthPicture }
+        : null;
+    case "gravatar":
+      return gravatarPicture && isImageData(gravatarPicture)
+        ? { kind, value: gravatarPicture }
         : null;
     default:
       return null;

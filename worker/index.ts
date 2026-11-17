@@ -17,6 +17,7 @@ import {
 import type { Env } from "./env";
 import { handleGraph } from "./graph";
 import { fail, sameOrigin, type Ctx } from "./http";
+import { handleGravatar } from "./gravatar";
 import { handleAvatar, handleMe } from "./me";
 import { handlePreviewImage, injectPreview, ticketPreview } from "./preview";
 import { handleCreateTicket, handleMyTickets, handleTicket } from "./tickets";
@@ -115,6 +116,8 @@ export async function handleApi(
       return only("GET") ? handleMe(ctx) : fail(405, "method");
     case "/api/me/avatar":
       return only("PUT") ? handleAvatar(ctx) : fail(405, "method");
+    case "/api/me/gravatar":
+      return only("GET") ? handleGravatar(ctx) : fail(405, "method");
     case "/api/venues/nearby":
       return only("GET") ? handleNearby(ctx) : fail(405, "method");
     case "/api/venues/search":

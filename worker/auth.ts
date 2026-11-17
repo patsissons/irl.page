@@ -6,8 +6,9 @@ import {
   appleConfig,
   appleEmail,
 } from "./apple";
-import { DEMO_READ_ONLY, isDemo, type DemoRole } from "./demo";
+import { DEMO_READ_ONLY, isDemo } from "./demo";
 import type { Env } from "./env";
+import { gravatarHash } from "./gravatar";
 import { fail, json, readJson, redirect, safeNext, type Ctx } from "./http";
 import {
   SESSION_COOKIE,
@@ -19,6 +20,7 @@ import {
   parseCookies,
   randomToken,
   sealSession,
+  type SessionPayload,
 } from "./session";
 import { personForEmail, publicUser } from "./users";
 
@@ -211,15 +213,9 @@ async function appleIdentity(ctx: Ctx, code: string): Promise<Identity | null> {
 /** The Set-Cookie header for a session. */
 export async function startSession(
   ctx: Ctx,
-  uid: string,
-  picture: string | null,
-  demo?: DemoRole,
+  payload: SessionPayload,
 ): Promise<string> {
-  const sealed = await sealSession(ctx.env.SESSION_SECRET, {
-    uid,
-    picture,
-    ...(demo ? { demo } : {}),
-  });
+  const sealed = await sealSession(ctx.env.SESSION_SECRET, payload);
   return cookieHeader(SESSION_COOKIE, sealed, {
     maxAge: SESSION_MAX_AGE,
     secure: isSecure(ctx.url),
@@ -267,7 +263,11 @@ export async function handleCallback(
     ctx.now().toISOString(),
   );
   return redirect(`${url.origin}${safeNext(decodeURIComponent(next))}`, [
-    await startSession(ctx, person.id, identity.picture),
+    await startSession(ctx, {
+      uid: person.id,
+      picture: identity.picture,
+      gravatar: await gravatarHash(identity.email),
+    }),
     clearState,
   ]);
 }
@@ -321,6 +321,8 @@ export async function handleDev(ctx: Ctx): Promise<Response> {
   }
   return new Response(null, {
     status: 204,
-    headers: { "set-cookie": await startSession(ctx, uid, null) },
+    headers: {
+      "set-cookie": await startSession(ctx, { uid, picture: null }),
+    },
   });
 }

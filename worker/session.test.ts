@@ -27,6 +27,19 @@ describe("session cookie", () => {
     });
   });
 
+  it("keeps a Gravatar key only if it is a SHA-256 hex digest", async () => {
+    const hash = "a".repeat(64);
+    const open = async (gravatar: string) =>
+      openSession(
+        "secret",
+        await sealSession("secret", { uid: "u1", picture: null, gravatar }),
+      );
+    expect((await open(hash))?.gravatar).toBe(hash);
+    for (const junk of ["", "abc", "Z".repeat(64), `${hash}0`]) {
+      expect(await open(junk)).toEqual({ uid: "u1", picture: null });
+    }
+  });
+
   it("rejects a tampered, foreign or missing cookie", async () => {
     const sealed = await sealSession("secret", { uid: "u1", picture: null });
     expect(await openSession("other", sealed)).toBeNull();

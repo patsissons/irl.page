@@ -1,8 +1,11 @@
 /** API shapes shared by the Worker and the client. */
 
-export type AvatarKind = "oauth" | "url" | "emoji" | "blocky";
+export type AvatarKind = "oauth" | "gravatar" | "url" | "emoji" | "blocky";
 
-/** `value` is a URL for oauth/url, the emoji itself, or "" for blocky. */
+/**
+ * `value` is a URL for oauth/url (an https link or a data: URI), a data:
+ * URI for gravatar, the emoji itself, or "" for blocky.
+ */
 export interface Avatar {
   kind: AvatarKind;
   value: string;
@@ -17,6 +20,11 @@ export interface Me extends PublicUser {
   onboarded: boolean;
   /** Picture captured at sign-in; held in the session, never stored. */
   oauthPicture: string | null;
+  /**
+   * The session can look up a Gravatar (GET /api/me/gravatar). The key it
+   * looks up by stays sealed in the session cookie.
+   */
+  gravatar: boolean;
 }
 
 export interface AuthOptions {
