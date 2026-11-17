@@ -32,6 +32,18 @@ export async function visitor(
     permissions: ["geolocation"],
     reducedMotion: "reduce",
   });
+  // Stand in for the system share sheet (desktop browsers have none) and
+  // record what would have been shared.
+  await context.addInitScript(() => {
+    const target = window as unknown as { shared?: unknown };
+    navigator.share = async (data?: ShareData) => {
+      target.shared = {
+        url: data?.url,
+        title: data?.title,
+        files: data?.files?.length ?? 0,
+      };
+    };
+  });
   return { context, page: await context.newPage() };
 }
 

@@ -8,6 +8,9 @@ import type { Env } from "./env";
 import { handleApi, type Deps } from "./index";
 
 const ORIGIN = "https://irl.test";
+/** Standing at the test venue, and a few kilometres away from it. */
+const AT = { lat: DRAFT.lat, lng: DRAFT.lng, accuracy: 10 };
+const AWAY = { lat: DRAFT.lat + 0.05, lng: DRAFT.lng, accuracy: 10 };
 const ENV = {
   SESSION_SECRET: "session-secret",
   EMAIL_PEPPER: "pepper",
@@ -259,7 +262,7 @@ describe("tickets", () => {
     const stranger = client({ db });
     const [hostId, guestId] = [await host.onboard(), await guest.onboard()];
     await stranger.onboard();
-    const created = await host.post("/api/tickets", { venue: DRAFT });
+    const created = await host.post("/api/tickets", { venue: DRAFT, at: AT });
     expect(created.status).toBe(201);
     return {
       db,
@@ -285,12 +288,12 @@ describe("tickets", () => {
     // Nobody has joined: nothing to submit yet.
     expect((await host.post(`${path}/submit`)).status).toBe(409);
 
-    const joined = await view(await guest.post(`${path}/join`));
+    const joined = await view(await guest.post(`${path}/join`, { at: AT }));
     expect(joined).toMatchObject({ isParticipant: true, isCreator: false });
     expect(joined.participants.map((user) => user.id)).toEqual([guestId]);
     // Joining twice changes nothing.
     expect(
-      (await view(await guest.post(`${path}/join`))).participants,
+      (await view(await guest.post(`${path}/join`, { at: AT }))).participants,
     ).toHaveLength(1);
 
     // Only the creator submits.
@@ -316,11 +319,11 @@ describe("tickets", () => {
   it("makes a submitted ticket immutable and members-only", async () => {
     const { db, host, guest, stranger, ticket } = await party();
     const path = `/api/tickets/${ticket.code}`;
-    await guest.post(`${path}/join`);
+    await guest.post(`${path}/join`, { at: AT });
     await host.post(`${path}/submit`);
     const frozen = await db.list("tickets");
 
-    expect((await stranger.post(`${path}/join`)).status).toBe(409);
+    expect((await stranger.post(`${path}/join`, { at: AT })).status).toBe(409);
     expect((await host.post(`${path}/submit`)).status).toBe(409);
     expect((await host.send("DELETE", path)).status).toBe(409);
     expect(await db.list("tickets")).toEqual(frozen);
@@ -340,10 +343,10 @@ describe("tickets", () => {
       isCreator: false,
       isParticipant: false,
     });
-    expect((await visitor.post(`${path}/join`)).status).toBe(401);
+    expect((await visitor.post(`${path}/join`, { at: AT })).status).toBe(401);
     // Signed in but no avatar picked yet.
     await visitor.post("/api/auth/dev", { fresh: true });
-    expect((await visitor.post(`${path}/join`)).status).toBe(403);
+    expect((await visitor.post(`${path}/join`, { at: AT })).status).toBe(403);
   });
 
   it("lets the creator cancel an open ticket, and nobody else", async () => {
@@ -357,27 +360,66 @@ describe("tickets", () => {
 
   it("creates a ticket at an existing venue, and validates new ones", async () => {
     const { db, host, guest, ticket } = await party();
-    await guest.post(`/api/tickets/${ticket.code}/join`);
+    await guest.post(`/api/tickets/${ticket.code}/join`, { at: AT });
     const first = await view(
       await host.post(`/api/tickets/${ticket.code}/submit`),
     );
 
     const second = await view(
-      await host.post("/api/tickets", { venueId: first.venue.id }),
+      await host.post("/api/tickets", { venueId: first.venue.id, at: AT }),
     );
     expect(second.venue).toMatchObject({
       id: first.venue.id,
       name: DRAFT.name,
     });
     expect(
-      (await host.post("/api/tickets", { venueId: "missing" })).status,
+      (await host.post("/api/tickets", { venueId: "missing", at: AT })).status,
     ).toBe(404);
     expect(
-      (await host.post("/api/tickets", { venue: { name: "No pin" } })).status,
+      (await host.post("/api/tickets", { venue: { name: "No pin" }, at: AT }))
+        .status,
     ).toBe(400);
     expect(
-      (await client({ db }).post("/api/tickets", { venue: DRAFT })).status,
+      (await client({ db }).post("/api/tickets", { venue: DRAFT, at: AT }))
+        .status,
     ).toBe(401);
+  });
+
+  it("only lets people who are at the venue create or join", async () => {
+    const { db, host, guest, ticket } = await party();
+    const path = `/api/tickets/${ticket.code}`;
+
+    // No location, a malformed one, or one that is somewhere else.
+    expect((await guest.post(`${path}/join`)).status).toBe(400);
+    expect(
+      (await guest.post(`${path}/join`, { at: { lat: "x" } })).status,
+    ).toBe(400);
+    const far = await guest.post(`${path}/join`, { at: AWAY });
+    expect(far.status).toBe(403);
+    expect(await far.json()).toEqual({ error: "too far from the venue" });
+    expect((await db.list("tickets"))[0].participants).toEqual([]);
+
+    // A rough fix near the venue is still fine.
+    const rough = { lat: DRAFT.lat + 0.003, lng: DRAFT.lng, accuracy: 120 };
+    expect((await guest.post(`${path}/join`, { at: rough })).status).toBe(200);
+
+    // The same goes for making a ticket, at a new venue or a known one.
+    expect((await host.post("/api/tickets", { venue: DRAFT })).status).toBe(
+      400,
+    );
+    expect(
+      (await host.post("/api/tickets", { venue: DRAFT, at: AWAY })).status,
+    ).toBe(403);
+    const submitted = await view(await host.post(`${path}/submit`));
+    expect(
+      (
+        await host.post("/api/tickets", {
+          venueId: submitted.venue.id,
+          at: AWAY,
+        })
+      ).status,
+    ).toBe(403);
+    expect(await db.list("tickets")).toHaveLength(1);
   });
 
   it("stops accepting an open ticket after a day", async () => {
@@ -385,9 +427,9 @@ describe("tickets", () => {
     const tomorrow = () => new Date(Date.now() + 25 * 3600 * 1000);
     const late = client({ db, now: tomorrow });
     late.jar.set("irl_session", guest.jar.get("irl_session")!);
-    expect((await late.post(`/api/tickets/${ticket.code}/join`)).status).toBe(
-      404,
-    );
+    expect(
+      (await late.post(`/api/tickets/${ticket.code}/join`, { at: AT })).status,
+    ).toBe(404);
   });
 });
 
@@ -428,9 +470,9 @@ describe("venues and graph", () => {
     await host.onboard();
     await guest.onboard();
     const ticket = await view(
-      await host.post("/api/tickets", { venue: DRAFT }),
+      await host.post("/api/tickets", { venue: DRAFT, at: AT }),
     );
-    await guest.post(`/api/tickets/${ticket.code}/join`);
+    await guest.post(`/api/tickets/${ticket.code}/join`, { at: AT });
     await host.post(`/api/tickets/${ticket.code}/submit`);
     return { db, host };
   }
@@ -480,6 +522,53 @@ describe("venues and graph", () => {
       await host.get(`/api/venues/nearby?lat=${DRAFT.lat}&lng=${DRAFT.lng}`)
     ).json()) as NearbyResponse;
     expect(body).toMatchObject({ osm: false, venues: [{ name: DRAFT.name }] });
+  });
+
+  it("finds addresses, with the place's own name when it has one", async () => {
+    const asked: string[] = [];
+    const nominatim: typeof fetch = async (input) => {
+      asked.push(String(input));
+      return Response.json([
+        {
+          name: "JJ Bean",
+          display_name: "JJ Bean, 1689, Johnston Street",
+          lat: "49.2727",
+          lon: "-123.1353",
+        },
+        {
+          name: "",
+          display_name: "1689, Johnston Street",
+          lat: "49.2726",
+          lon: "-123.1352",
+        },
+        { display_name: "Nowhere", lat: "x", lon: "y" },
+      ]);
+    };
+    const { host } = await seeded(
+      { fetch: nominatim },
+      { ...ENV, OSM_LOOKUP: "on" },
+    );
+    const body = (await (
+      await host.get(
+        "/api/venues/search?q=1689%20Johnston%20St&lat=49.27&lng=-123.13",
+      )
+    ).json()) as { results: unknown[] };
+    expect(asked[0]).toContain("nominatim.openstreetmap.org/search");
+    expect(asked[0]).toContain("q=1689+Johnston+St");
+    expect(body.results).toEqual([
+      {
+        name: "JJ Bean",
+        label: "JJ Bean, 1689, Johnston Street",
+        lat: 49.2727,
+        lng: -123.1353,
+      },
+      {
+        name: "",
+        label: "1689, Johnston Street",
+        lat: 49.2726,
+        lng: -123.1352,
+      },
+    ]);
   });
 
   it("requires sign-in and coordinates for venue lookups", async () => {

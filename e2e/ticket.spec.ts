@@ -38,6 +38,59 @@ test("two people meet: create, scan to join, submit, recall", async ({
   ).toBeDisabled();
   await expectNoHorizontalScroll(host.page);
 
+  // The ticket's link unfurls as the ticket: preview tags and a 1200x630 PNG.
+  const shell = await (await page.request.get(`/?ticket=${code}`)).text();
+  expect(shell).toContain(`Join me at ${venue.name.replace(/&/g, "&amp;")}`);
+  expect(shell).toContain(`/api/tickets/${code}/preview.png`);
+  const preview = await page.request.get(`/api/tickets/${code}/preview.png`);
+  expect(preview.headers()["content-type"]).toBe("image/png");
+  const png = await preview.body();
+  expect(png.subarray(1, 4).toString()).toBe("PNG");
+  expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1200, 630]);
+
+  // Share opens the system sheet with the ticket's link.
+  await host.page.getByRole("button", { name: "Share" }).click();
+  const shared = await host.page.evaluate(
+    () => (window as unknown as { shared: Record<string, unknown> }).shared,
+  );
+  expect(shared).toEqual({
+    url: `${baseURL}/?ticket=${code}`,
+    title: `Join me at ${venue.name}`,
+    files: 0,
+  });
+
+  // Someone the link reached who isn't at the venue can see the ticket but
+  // can't join it.
+  const remote = await visitor(browser, baseURL, {
+    lat: venue.lat + 0.2,
+    lng: venue.lng,
+  });
+  await remote.page.goto(`/?ticket=${code}`);
+  await onboard(remote.page, "🐝");
+  await expect(remote.page.getByRole("alert")).toContainText(
+    "You need to be there to join",
+  );
+  await expect(
+    remote.page.getByRole("button", { name: "Join this ticket" }),
+  ).toBeDisabled();
+  await remote.context.close();
+
+  // Someone with location switched off is told how to turn it on.
+  const blocked = await browser.newContext({
+    baseURL,
+    reducedMotion: "reduce",
+  });
+  const blockedPage = await blocked.newPage();
+  await blockedPage.goto(`/?ticket=${code}`);
+  await onboard(blockedPage, "🦉");
+  await expect(blockedPage.getByRole("alert")).toContainText(
+    /Location is turned off|couldn't find where you are/,
+  );
+  await expect(
+    blockedPage.getByRole("button", { name: "Join this ticket" }),
+  ).toBeDisabled();
+  await blocked.close();
+
   // The guest scans the QR code with their phone's camera: the link opens
   // the home page with ?ticket=, and they sign up on the way in.
   await guest.page.goto(`/?ticket=${code}`);
@@ -67,6 +120,10 @@ test("two people meet: create, scan to join, submit, recall", async ({
   });
   await expect(recalled).toBeVisible();
   await expect(recalled.getByRole("img")).toHaveCount(2);
+
+  // A final ticket's link no longer unfurls.
+  const finalShell = await (await page.request.get(`/?ticket=${code}`)).text();
+  expect(finalShell).not.toContain("preview.png");
 
   // A final ticket is invisible to anyone who wasn't on it.
   await page.goto(`/ticket/${code}`);
@@ -139,4 +196,16 @@ test("the avatar can be changed from the profile", async ({ page }) => {
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByRole("link", { name: "Your profile" })).toHaveCount(0);
+});
+
+test("making a ticket needs location to be on", async ({ page }) => {
+  await page.goto("/new");
+  await onboard(page, "🍉");
+  const banner = page.getByRole("alert");
+  await expect(banner).toContainText(
+    /Location is turned off|couldn't find where you are/,
+  );
+  await expect(banner).toContainText("we need your location to make one");
+  await expect(banner.getByRole("button")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Nearby" })).toHaveCount(0);
 });

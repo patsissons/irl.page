@@ -1,10 +1,15 @@
 import { getMany, type PersonRec, type TicketRec } from "../shared/db";
 import { isTicketCode, ticketCode } from "../shared/ids";
+import { isPresent, validatePosition } from "../shared/proximity";
 import { MAX_PARTICIPANTS, isExpired, submitTicket } from "../shared/submit";
 import type { TicketView } from "../shared/types";
 import { validateDraft } from "../shared/venues";
 import { fail, json, readJson, type Ctx } from "./http";
 import { currentUser, publicUser, unknownUser } from "./users";
+
+/** Error codes the client turns into its location prompts. */
+export const LOCATION_REQUIRED = "location required";
+export const TOO_FAR = "too far from the venue";
 
 const isMember = (ticket: TicketRec, userId: string) =>
   ticket.creator === userId || ticket.participants.includes(userId);
@@ -90,7 +95,7 @@ export async function handleMyTickets(ctx: Ctx): Promise<Response> {
   return json({ tickets: await views(ctx, mine, signed.person) });
 }
 
-/** POST /api/tickets { venueId } | { venue } -> a new open ticket. */
+/** POST /api/tickets { venueId | venue, at } -> a new open ticket. */
 export async function handleCreateTicket(ctx: Ctx): Promise<Response> {
   const signed = await currentUser(ctx);
   if (!signed) return fail(401, "sign in first");
@@ -98,17 +103,23 @@ export async function handleCreateTicket(ctx: Ctx): Promise<Response> {
   const body = (await readJson(ctx.request)) as {
     venueId?: unknown;
     venue?: unknown;
+    at?: unknown;
   } | null;
+  // A ticket says "we were here", so the creator has to be here.
+  const at = validatePosition(body?.at);
+  if (!at) return fail(400, LOCATION_REQUIRED);
 
   let venue = "";
   let draft = null;
   if (typeof body?.venueId === "string") {
     const existing = await ctx.db.get("venues", body.venueId);
     if (!existing) return fail(404, "no such venue");
+    if (!isPresent(at, existing)) return fail(403, TOO_FAR);
     venue = existing.id;
   } else {
     draft = validateDraft(body?.venue);
     if (!draft) return fail(400, "a venue needs a name and a location");
+    if (!isPresent(at, draft)) return fail(403, TOO_FAR);
   }
   const ticket = await ctx.db.create("tickets", {
     code: ticketCode(),
@@ -128,7 +139,7 @@ export async function handleCreateTicket(ctx: Ctx): Promise<Response> {
  * /api/tickets/<code>[/join|/submit]
  *   GET            an open ticket is readable by anyone holding its code
  *                  (that is the invitation); a submitted one only by members
- *   POST   /join   add myself to an open ticket
+ *   POST   /join   add myself to an open ticket; { at } must be at the venue
  *   POST   /submit creator only; freezes the ticket and writes the graph
  *   DELETE         creator only; discards an open ticket
  */
@@ -164,6 +175,16 @@ export async function handleTicket(
     if (isMember(ticket, viewer.id)) return respond(ticket);
     if (ticket.participants.length >= MAX_PARTICIPANTS)
       return fail(409, "ticket is full");
+    // A link or a photo of the QR code can travel anywhere; the person
+    // joining still has to be at the venue.
+    const body = (await readJson(ctx.request)) as { at?: unknown } | null;
+    const at = validatePosition(body?.at);
+    if (!at) return fail(400, LOCATION_REQUIRED);
+    const stored = ticket.venue
+      ? await ctx.db.get("venues", ticket.venue)
+      : null;
+    const venue = stored ?? ticket.venue_draft;
+    if (!venue || !isPresent(at, venue)) return fail(403, TOO_FAR);
     return respond(await ctx.db.addParticipant(ticket.id, viewer.id));
   }
 
