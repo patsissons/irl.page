@@ -18,8 +18,16 @@ export interface PublicUser {
 
 export interface Me extends PublicUser {
   onboarded: boolean;
-  /** Picture captured at sign-in; held in the session, never stored. */
+  /**
+   * A link to the picture captured at sign-in (/api/me/picture). The
+   * picture's own URL stays in the session, and is stored only if chosen.
+   */
   oauthPicture: string | null;
+  /**
+   * This person's own image link or pasted image, so they can edit it.
+   * Everyone else, them included, is shown it through publicAvatar.
+   */
+  avatarLink: string | null;
   /**
    * The session can look up a Gravatar (GET /api/me/gravatar). The key it
    * looks up by stays sealed in the session cookie.

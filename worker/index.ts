@@ -17,6 +17,7 @@ import {
 import type { Env } from "./env";
 import { handleGraph } from "./graph";
 import { fail, sameOrigin, type Ctx } from "./http";
+import { handleMyPicture, handlePersonAvatar } from "./avatars";
 import { handleGravatar } from "./gravatar";
 import { handleAvatar, handleMe } from "./me";
 import { handlePreviewImage, injectPreview, ticketPreview } from "./preview";
@@ -37,6 +38,7 @@ const PREVIEW_ROUTE = /^\/api\/tickets\/([^/]+)\/preview\.png$/;
 const TICKET_PAGE = /^\/ticket\/([^/]+)$/;
 /** A record id; "nearby" and "search" are too short to be one. */
 const VENUE_ROUTE = /^\/api\/venues\/([a-z0-9]{15})$/;
+const PERSON_AVATAR = /^\/api\/people\/([a-z0-9]{15})\/avatar$/;
 const TICKET_ROUTE = /^\/api\/tickets\/([^/]+)(?:\/(join|submit))?$/;
 
 function context(request: Request, env: Env, url: URL, deps: Deps): Ctx {
@@ -100,6 +102,12 @@ export async function handleApi(
   }
   const ticket = TICKET_ROUTE.exec(url.pathname);
   if (ticket) return handleTicket(ctx, ticket[1], ticket[2]);
+  const person = PERSON_AVATAR.exec(url.pathname);
+  if (person) {
+    return only("GET")
+      ? handlePersonAvatar(ctx, person[1])
+      : fail(405, "method");
+  }
   const venue = VENUE_ROUTE.exec(url.pathname);
   if (venue) {
     return only("GET") ? handleVenue(ctx, venue[1]) : fail(405, "method");
@@ -116,6 +124,8 @@ export async function handleApi(
       return only("GET") ? handleMe(ctx) : fail(405, "method");
     case "/api/me/avatar":
       return only("PUT") ? handleAvatar(ctx) : fail(405, "method");
+    case "/api/me/picture":
+      return only("GET") ? handleMyPicture(ctx) : fail(405, "method");
     case "/api/me/gravatar":
       return only("GET") ? handleGravatar(ctx) : fail(405, "method");
     case "/api/venues/nearby":

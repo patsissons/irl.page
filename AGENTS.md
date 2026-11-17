@@ -106,6 +106,15 @@ then deploys the Worker to `irl.page` (`deploy-worker`).
   (`/api/venues/<id>`, `shared/venue-detail.ts`) is public too and is the
   same facts counted up: who has been to a venue and how often, and visits
   per day. It must not gain anything the graph doesn't already imply.
+- **Pictures leave only as links to the Worker's copy.** Every avatar sent
+  to a browser goes through `publicAvatar` (`shared/avatar.ts`): an emoji
+  or blocky as is, a picture as `/api/people/<id>/avatar?v=<version>`,
+  which the Worker serves itself (`worker/avatars.ts`: https only, raster
+  types only, `MAX_IMAGE_BYTES`, `nosniff` and a sandboxing CSP). A
+  picture's source (a GitHub URL names the account, an image host would see
+  every viewer, a data: URI is up to 16 KB) never reaches a browser. The
+  owner gets their own image link back as `avatarLink` to edit it, and
+  their sign-in picture as `/api/me/picture`.
 - **The QR link is `<origin>/?ticket=<code>`** so any camera app can open
   it; `src/App.tsx` forwards it to `/ticket/<code>`, and the sign-in and
   onboarding detour returns there (`next`, validated by `safeNext`).

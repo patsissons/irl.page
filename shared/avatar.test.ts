@@ -5,6 +5,7 @@ import {
   blocky,
   isEmoji,
   MAX_DATA_URI,
+  publicAvatar,
   validateAvatar,
 } from "./avatar.ts";
 
@@ -96,6 +97,32 @@ describe("validateAvatar", () => {
     });
     expect(validateAvatar({ kind: "gif" }, null)).toBeNull();
     expect(validateAvatar(null, null)).toBeNull();
+  });
+});
+
+describe("publicAvatar", () => {
+  const as = (
+    avatar_kind: "emoji" | "blocky" | "url" | "oauth" | "gravatar",
+    avatar_value: string,
+  ) => publicAvatar({ id: "p1", avatar_kind, avatar_value });
+
+  it("sends emoji and blocky as they are", () => {
+    expect(as("emoji", "🦊")).toEqual({ kind: "emoji", value: "🦊" });
+    expect(as("blocky", "")).toEqual({ kind: "blocky", value: "" });
+  });
+
+  it("turns every picture into a versioned link to the Worker's copy", () => {
+    for (const kind of ["url", "oauth", "gravatar"] as const) {
+      const avatar = as(kind, "https://avatars.githubusercontent.com/u/123");
+      expect(avatar.kind).toBe(kind);
+      expect(avatar.value).toMatch(/^\/api\/people\/p1\/avatar\?v=[0-9a-z]+$/);
+    }
+    expect(as("url", "https://a.test/1.png").value).not.toBe(
+      as("url", "https://a.test/2.png").value,
+    );
+    expect(as("url", "https://a.test/1.png").value).toBe(
+      as("url", "https://a.test/1.png").value,
+    );
   });
 });
 
