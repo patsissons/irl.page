@@ -34,6 +34,7 @@ export default defineConfig({
       "src/**/*.{test,spec}.{ts,tsx}",
       "worker/**/*.{test,spec}.ts",
       "shared/**/*.{test,spec}.ts",
+      "scripts/**/*.{test,spec}.ts",
     ],
     setupFiles: ["./vitest.setup.ts"],
   },
