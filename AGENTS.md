@@ -74,6 +74,22 @@ Commit in small, modular units (one logical change per commit).
 - **The QR link is `<origin>/?ticket=<code>`** so any camera app can open
   it; `src/App.tsx` forwards it to `/ticket/<code>`, and the sign-in and
   onboarding detour returns there (`next`, validated by `safeNext`).
+- **You have to be there.** Creating a ticket and joining one both require
+  the browser's position, checked in the Worker against the venue
+  (`shared/proximity.ts`, `PRESENT_RADIUS_M`). A link or a photo of the QR
+  code can travel anywhere; this is what keeps a ticket "in real life". It
+  rests on what the browser reports, so it stops casual remote joins, not
+  deliberate spoofing. Where a page needs a location and can't get one it
+  shows `LocationBanner` (`src/components/location-banner.tsx`).
+- **Share sends the link only** (`src/lib/share.ts`). The link unfurls as
+  the ticket: `shared/ticket-svg.ts` draws a 1200x630 landscape ticket that
+  the Worker rasterises with resvg (`worker/png.ts`). Keep the drawing to
+  shapes and plain text, and escape every string. The Worker's fonts
+  (`public/fonts`, Geist Latin and Latin Extended) have no emoji or other
+  scripts, so the preview shows no avatars.
+- **Only open tickets unfurl.** `worker/preview.ts` gives a ticket link its
+  preview tags and image only while the ticket is open and unexpired; a
+  submitted ticket is members-only, so its link gets the plain app shell.
 - **Every venue has a lat/lng.** A ticket can't be created without one.
 - **State-changing requests require the app's `Origin`** (`worker/index.ts`).
 - **`DEV_LOGIN=1` is for local development and e2e only.** It lets anyone
@@ -103,6 +119,37 @@ Commit in small, modular units (one logical change per commit).
 - PocketBase is pinned (`PB_VERSION` in `scripts/pocketbase.sh`) and
   downloaded by `scripts/pocketbase-download.ts`, which reads the zip itself
   because the CI container has no `unzip`.
+- **Focus is a node id in the URL** (`?focus=`), so it carries between the
+  graph and the globe. `focusGraph` (`src/lib/focus.ts`) keeps the node, its
+  direct neighbours and only the links that touch it. `graph-view.tsx` keeps
+  node objects in a module-level map so positions survive narrowing and
+  widening.
+- **Keep every prop passed to the globe and the force graph referentially
+  stable** (module constants, `useMemo`, `useCallback`). Both libraries
+  rebuild a layer when a prop changes identity, so an inline accessor
+  rebuilds that layer on every React render, and on phones the stage
+  re-renders whenever the browser toolbar resizes it.
+- **The heat overlay is ours, not the globe library's.** The library's
+  `heatmapsData` layer evaluates a density estimate for about 200k vertices
+  on the main thread, which froze phones for seconds when switching to it.
+  `src/lib/heat-texture.ts` draws the heat as an equirectangular canvas
+  image instead, and `globe-view.tsx` wraps it on one sphere added to the
+  globe's scene. Don't switch back to `heatmapsData`.
+- Arcs are grouped by one-degree cell (`arcs` in `src/lib/globe-data.ts`)
+  and drawn with reduced tube detail, so switching to them builds tens of
+  small meshes rather than hundreds of detailed ones.
+- Nothing over the stage uses `backdrop-blur` (re-blurring a canvas that
+  redraws every frame is expensive on phones), and the stage is
+  `touch-none` so a drag turns the view instead of scrolling the page. On
+  touch devices the globe renders without antialiasing at a pixel ratio
+  capped at 1.5 (`globe-view.tsx`).
+- `worker/png.ts` imports a WebAssembly module, which Vitest can't load, so
+  `worker/index.ts` imports it lazily and tests pass their own `png`. The
+  render costs tens of milliseconds of CPU (over the Workers Free limit), so
+  `handlePreviewImage` caches every image.
+- Geolocation, the camera and `navigator.share` only exist on a secure
+  origin. `pnpm dev:https` serves the app with a self-signed certificate for
+  trying it on a phone.
 - three-globe's colour parser doesn't accept the space-separated
   `hsl(h s% l%)` form; a colour it can't parse makes the shape invisible.
   Use comma syntax or hex for anything passed to the globe.

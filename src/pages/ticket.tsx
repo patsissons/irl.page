@@ -1,14 +1,19 @@
 import { useEffect, useState } from "react";
-import { Check, Copy, Send, Trash2, UserPlus } from "lucide-react";
+import { Check, Copy, Send, Share2, Trash2, UserPlus } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
+import { formatDistance } from "@shared/geo";
+import { PRESENT_RADIUS_M, distanceFromVenue } from "@shared/proximity";
 import type { TicketView } from "@shared/types";
+import { LocationBanner } from "@/components/location-banner";
 import { SignIn } from "@/components/sign-in";
 import { TicketCard } from "@/components/ticket-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePosition } from "@/hooks/use-position";
 import { api, ApiFailure } from "@/lib/api";
 import { ticketLink } from "@/lib/links";
 import { useSession } from "@/lib/session";
+import { canShare, shareTicket } from "@/lib/share";
 
 const POLL_MS = 3000;
 
@@ -48,6 +53,29 @@ export function TicketPage() {
       clearInterval(timer);
     };
   }, [code, viewer, open]);
+
+  const member = Boolean(ticket?.isCreator || ticket?.isParticipant);
+  const party = ticket?.participants.length ?? 0;
+  const sharable = open && member && canShare();
+
+  // Joining needs a confirmed location: a link or a photo of the QR code
+  // can reach someone who isn't here. Only asked of people who could join.
+  const joining = Boolean(open && user?.onboarded && !member);
+  const location = usePosition(joining);
+  const away =
+    ticket && location.position
+      ? distanceFromVenue(location.position, ticket.venue)
+      : null;
+  const tooFar = away !== null && away > PRESENT_RADIUS_M;
+
+  async function share() {
+    if (!ticket) return;
+    try {
+      await shareTicket(ticket);
+    } catch {
+      setError("Couldn't open the share sheet");
+    }
+  }
 
   async function act(action: () => Promise<TicketView | void>) {
     setBusy(true);
@@ -98,8 +126,6 @@ export function TicketPage() {
       <Navigate to={`/welcome?next=${encodeURIComponent(here)}`} replace />
     );
   }
-  const member = ticket.isCreator || ticket.isParticipant;
-  const party = ticket.participants.length;
 
   return (
     <div className="grid gap-5">
@@ -117,21 +143,48 @@ export function TicketPage() {
           <SignIn next={here} title="Sign in to join this ticket" />
         )}
 
-        {open && user && !member && (
-          <Button
-            size="lg"
-            disabled={busy}
-            onClick={() => act(() => api.join(code))}
-          >
-            <UserPlus /> Join this ticket
-          </Button>
+        {joining && (
+          <>
+            <LocationBanner
+              location={location}
+              reason="Joining a ticket means you were there, so we need your location to check you're at the venue."
+            />
+            {tooFar && away !== null && (
+              <p role="alert" className="text-center text-sm text-destructive">
+                You&apos;re about {formatDistance(away)} from{" "}
+                {ticket.venue.name}. You need to be there to join.
+              </p>
+            )}
+            <Button
+              size="lg"
+              disabled={busy || !location.position || tooFar}
+              onClick={() => {
+                const at = location.position;
+                if (at) void act(() => api.join(code, { at }));
+              }}
+            >
+              <UserPlus /> Join this ticket
+            </Button>
+            {tooFar && (
+              <Button variant="ghost" onClick={location.retry}>
+                Check my location again
+              </Button>
+            )}
+          </>
         )}
 
         {open && ticket.isParticipant && (
-          <p className="text-center text-sm text-muted-foreground">
-            You&apos;re on the ticket. It becomes final when the host submits
-            it.
-          </p>
+          <>
+            <p className="text-center text-sm text-muted-foreground">
+              You&apos;re on the ticket. It becomes final when the host submits
+              it.
+            </p>
+            {sharable && (
+              <Button variant="secondary" className="mx-auto" onClick={share}>
+                <Share2 /> Share
+              </Button>
+            )}
+          </>
         )}
 
         {open && ticket.isCreator && (
@@ -148,7 +201,12 @@ export function TicketPage() {
                 ? "Have someone scan the code to join. A ticket needs at least two people."
                 : "Submitting makes the ticket final. Nobody can join or leave after that."}
             </p>
-            <div className="flex justify-center gap-2">
+            <div className="flex flex-wrap justify-center gap-2">
+              {sharable && (
+                <Button variant="secondary" onClick={share}>
+                  <Share2 /> Share
+                </Button>
+              )}
               <Button variant="secondary" onClick={copy}>
                 {copied ? <Check /> : <Copy />}{" "}
                 {copied ? "Copied" : "Copy link"}

@@ -154,9 +154,10 @@ export async function handleAddressSearch(ctx: Ctx): Promise<Response> {
           headers: { "user-agent": USER_AGENT, accept: "application/json" },
           signal: AbortSignal.timeout(10_000),
         }),
-    )) as { display_name: string; lat: string; lon: string }[];
+    )) as { name?: string; display_name: string; lat: string; lon: string }[];
     const results: AddressResult[] = rows
       .map((row) => ({
+        name: (row.name ?? "").trim(),
         label: row.display_name,
         lat: Number(row.lat),
         lng: Number(row.lon),

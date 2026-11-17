@@ -11,6 +11,7 @@ import type { Env } from "./env";
 import { handleGraph } from "./graph";
 import { fail, sameOrigin, type Ctx } from "./http";
 import { handleAvatar, handleMe } from "./me";
+import { handlePreviewImage, injectPreview, ticketPreview } from "./preview";
 import { handleCreateTicket, handleMyTickets, handleTicket } from "./tickets";
 import { handleAddressSearch, handleNearby } from "./venues";
 
@@ -18,18 +19,16 @@ export interface Deps {
   db?: Datastore;
   fetch?: typeof fetch;
   now?: () => Date;
+  png?: (svg: string) => Promise<Uint8Array>;
 }
 
 const AUTH_ROUTE = /^\/api\/auth\/(google|github)\/(login|callback)$/;
+const PREVIEW_ROUTE = /^\/api\/tickets\/([^/]+)\/preview\.png$/;
+const TICKET_PAGE = /^\/ticket\/([^/]+)$/;
 const TICKET_ROUTE = /^\/api\/tickets\/([^/]+)(?:\/(join|submit))?$/;
 
-export async function handleApi(
-  request: Request,
-  env: Env,
-  url: URL,
-  deps: Deps = {},
-): Promise<Response> {
-  const ctx: Ctx = {
+function context(request: Request, env: Env, url: URL, deps: Deps): Ctx {
+  return {
     request,
     env,
     url,
@@ -42,7 +41,21 @@ export async function handleApi(
       }),
     fetch: deps.fetch ?? ((input, init) => fetch(input, init)),
     now: deps.now ?? (() => new Date()),
+    // Loaded on demand: the renderer pulls in a WebAssembly module that
+    // only the preview image needs (and that unit tests can't import).
+    png:
+      deps.png ??
+      (async (svg) => (await import("./png")).renderPng(env, url.origin, svg)),
   };
+}
+
+export async function handleApi(
+  request: Request,
+  env: Env,
+  url: URL,
+  deps: Deps = {},
+): Promise<Response> {
+  const ctx = context(request, env, url, deps);
   const { method } = request;
   const safe = method === "GET" || method === "HEAD";
   if (!safe && !sameOrigin(request, url)) return fail(403, "origin");
@@ -55,6 +68,12 @@ export async function handleApi(
     return auth[2] === "login"
       ? handleLogin(ctx, provider)
       : handleCallback(ctx, provider);
+  }
+  const preview = PREVIEW_ROUTE.exec(url.pathname);
+  if (preview) {
+    return only("GET")
+      ? handlePreviewImage(ctx, preview[1])
+      : fail(405, "method");
   }
   const ticket = TICKET_ROUTE.exec(url.pathname);
   if (ticket) return handleTicket(ctx, ticket[1], ticket[2]);
@@ -85,6 +104,44 @@ export async function handleApi(
   }
 }
 
+/** The ticket code a page request is for: /?ticket=<code> or /ticket/<code>. */
+export function pageTicketCode(url: URL): string | null {
+  if (url.pathname === "/") return url.searchParams.get("ticket");
+  return TICKET_PAGE.exec(url.pathname)?.[1] ?? null;
+}
+
+/**
+ * Serves the app shell for a ticket link with that ticket's link-preview
+ * tags, so a shared link unfurls as the ticket. Anything that goes wrong
+ * falls back to the plain shell.
+ */
+export async function handleTicketPage(
+  request: Request,
+  env: Env,
+  url: URL,
+  code: string,
+  deps: Deps = {},
+): Promise<Response> {
+  const page = await env.ASSETS.fetch(request);
+  if (!page.ok || !page.headers.get("content-type")?.includes("text/html"))
+    return page;
+  try {
+    const preview = await ticketPreview(context(request, env, url, deps), code);
+    if (!preview) return page;
+    const headers = new Headers(page.headers);
+    headers.delete("content-length");
+    headers.delete("etag");
+    headers.set("cache-control", "no-store");
+    return new Response(injectPreview(await page.text(), preview), {
+      status: page.status,
+      headers,
+    });
+  } catch (error) {
+    console.error("ticket preview", error);
+    return env.ASSETS.fetch(request);
+  }
+}
+
 export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url);
@@ -96,6 +153,8 @@ export default {
         return fail(500, "something went wrong");
       }
     }
+    const code = request.method === "GET" ? pageTicketCode(url) : null;
+    if (code) return handleTicketPage(request, env, url, code);
     return env.ASSETS.fetch(request);
   },
 } satisfies ExportedHandler<Env>;

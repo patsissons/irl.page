@@ -6,25 +6,26 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { LocateFixed, MapPin, Search } from "lucide-react";
+import { MapPin, Search } from "lucide-react";
 import { useNavigate } from "react-router";
 import { formatDistance, normalizeName, type LatLng } from "@shared/geo";
+import { PRESENT_RADIUS_M, isPresent, type Position } from "@shared/proximity";
 import type {
   AddressResult,
-  CreateTicketRequest,
   NearbyResponse,
   VenueCandidate,
+  VenueDraft,
 } from "@shared/types";
+import { LocationBanner } from "@/components/location-banner";
 import { RequireUser } from "@/components/require-user";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePosition } from "@/hooks/use-position";
 import { api, ApiFailure } from "@/lib/api";
 
 const VenueMap = lazy(() => import("@/components/venue-map"));
-
-type Locating = "asking" | "found" | "denied" | "unsupported";
 
 /** Venues around a point; refetched when the point moves. */
 function useNearby(point: LatLng | null) {
@@ -64,12 +65,8 @@ function sameName(candidates: VenueCandidate[], name: string) {
   );
 }
 
-function Form() {
+function Picker({ position }: { position: Position }) {
   const navigate = useNavigate();
-  const [locating, setLocating] = useState<Locating>(() =>
-    "geolocation" in navigator ? "asking" : "unsupported",
-  );
-  const [position, setPosition] = useState<LatLng | null>(null);
   const [pin, setPin] = useState<LatLng | null>(null);
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
@@ -78,37 +75,21 @@ function Form() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // `attempt` re-runs the request when the visitor taps "Try again".
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    if (!("geolocation" in navigator)) return;
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        setPosition({ lat: coords.latitude, lng: coords.longitude });
-        setLocating("found");
-      },
-      () => setLocating("denied"),
-      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 },
-    );
-  }, [attempt]);
-  const locate = () => {
-    setLocating("asking");
-    setAttempt((count) => count + 1);
-  };
-
-  const spot = pin ?? position;
+  const spot: LatLng = pin ?? position;
   const nearby = useNearby(position);
   const aroundPin = useNearby(spot);
+  // A ticket can only be made at the venue, so the pin can't stray far.
+  const pinTooFar = !isPresent(position, spot);
   const existing = useMemo(
     () => sameName(aroundPin?.venues ?? [], name),
     [aroundPin, name],
   );
 
-  async function create(body: CreateTicketRequest) {
+  async function create(venue: { venueId: string } | { venue: VenueDraft }) {
     setBusy(true);
     setError(null);
     try {
-      const ticket = await api.createTicket(body);
+      const ticket = await api.createTicket({ ...venue, at: position });
       navigate(`/ticket/${ticket.code}`);
     } catch (failure) {
       setError(
@@ -148,7 +129,7 @@ function Form() {
 
   function submitManual(event: FormEvent) {
     event.preventDefault();
-    if (!spot || !name.trim()) return;
+    if (pinTooFar || !name.trim()) return;
     void create({
       venue: {
         name: name.trim(),
@@ -174,29 +155,7 @@ function Form() {
         </TabsList>
 
         <TabsContent value="nearby" className="grid gap-3 pt-3">
-          {locating === "asking" && (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <LocateFixed className="size-4 animate-pulse" /> Finding where you
-              are…
-            </p>
-          )}
-          {(locating === "denied" || locating === "unsupported") && (
-            <div className="rounded-2xl border bg-card p-4 text-sm">
-              <p className="font-medium">We couldn&apos;t get your location</p>
-              <p className="mt-1 text-muted-foreground">
-                Allow location access and try again, or use “Somewhere else” to
-                place the venue on a map.
-              </p>
-              {locating === "denied" && (
-                <Button className="mt-3" variant="secondary" onClick={locate}>
-                  <LocateFixed /> Try again
-                </Button>
-              )}
-            </div>
-          )}
-          {locating === "found" && !nearby && (
-            <Skeleton className="h-40 w-full" />
-          )}
+          {!nearby && <Skeleton className="h-40 w-full" />}
           {nearby && nearby.venues.length === 0 && (
             <p className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
               Nothing found close by
@@ -313,6 +272,9 @@ function Form() {
                       type="button"
                       onClick={() => {
                         setPin({ lat: match.lat, lng: match.lng });
+                        // A named place fills an empty venue name; it never
+                        // overwrites one already typed.
+                        if (!name.trim() && match.name) setName(match.name);
                         setMatches(null);
                       }}
                       className="w-full cursor-pointer rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted"
@@ -334,17 +296,21 @@ function Form() {
               className="tabular text-sm text-muted-foreground"
               data-testid="pin"
             >
-              {spot
-                ? `Pin at ${spot.lat.toFixed(5)}, ${spot.lng.toFixed(5)}. Tap the map or drag the pin to move it.`
-                : "Tap the map to place the pin."}
+              {`Pin at ${spot.lat.toFixed(5)}, ${spot.lng.toFixed(5)}. Tap the map or drag the pin to move it.`}
             </p>
+            {pinTooFar && (
+              <p role="alert" className="text-sm text-destructive">
+                That pin is too far from where you are. A ticket can only be
+                made at the venue, within about {PRESENT_RADIUS_M} m of you.
+              </p>
+            )}
           </div>
 
           <Button
             type="submit"
             form="manual-venue"
             size="lg"
-            disabled={busy || !spot || !name.trim()}
+            disabled={busy || pinTooFar || !name.trim()}
           >
             Create ticket
           </Button>
@@ -352,6 +318,20 @@ function Form() {
       </Tabs>
     </div>
   );
+}
+
+/** Making a ticket needs a confirmed location: you have to be there. */
+function Form() {
+  const location = usePosition();
+  if (!location.position) {
+    return (
+      <LocationBanner
+        location={location}
+        reason="A ticket records that people were at a place together, so we need your location to make one."
+      />
+    );
+  }
+  return <Picker position={location.position} />;
 }
 
 /** Start a ticket: pick the venue you're at, or add it. */

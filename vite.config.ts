@@ -1,6 +1,7 @@
 /// <reference types="vitest/config" />
 import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
+import basicSsl from "@vitejs/plugin-basic-ssl";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { defineConfig } from "vite";
@@ -11,6 +12,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
     ...(process.env.VITEST ? [] : [cloudflare()]),
+    // `pnpm dev:https`: a self-signed certificate, for trying the app on a
+    // phone. The camera, location and share sheet need a secure origin.
+    ...(process.env.DEV_HTTPS ? [basicSsl()] : []),
   ],
   resolve: {
     alias: {

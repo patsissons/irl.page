@@ -62,7 +62,21 @@ describe("globe data", () => {
         endLat: LON.lat,
         endLng: LON.lng,
         count: 2,
+        stroke: 1.15,
       },
+    ]);
+  });
+
+  it("also draws person-to-venue arcs when asked, for a focused graph", () => {
+    const focused: GraphData = {
+      ...GRAPH,
+      people: [person("a", LON)],
+      links: [link("a", "v1"), link("a", "v2")],
+    };
+    expect(arcs(focused)).toEqual([]);
+    // a was last in London: one arc to Vancouver, none to London itself.
+    expect(arcs(focused, true)).toMatchObject([
+      { startLat: LON.lat, endLat: VAN.lat, count: 1 },
     ]);
   });
 

@@ -53,6 +53,8 @@ export interface NearbyResponse {
 }
 
 export interface AddressResult {
+  /** The place's own name, or "" for a plain street address. */
+  name: string;
   label: string;
   lat: number;
   lng: number;
@@ -78,7 +80,22 @@ export interface TicketView {
   isParticipant: boolean;
 }
 
-export type CreateTicketRequest = { venueId: string } | { venue: VenueDraft };
+/** Where the browser says the person is; see shared/proximity.ts. */
+export interface ReportedPosition {
+  lat: number;
+  lng: number;
+  accuracy: number;
+}
+
+/** `at` proves the creator is at the venue. */
+export type CreateTicketRequest = (
+  { venueId: string } | { venue: VenueDraft }
+) & { at: ReportedPosition };
+
+/** `at` proves the person joining is at the venue. */
+export interface JoinTicketRequest {
+  at: ReportedPosition;
+}
 
 export interface GraphPerson {
   id: string;

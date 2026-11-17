@@ -3,6 +3,7 @@ import type {
   Avatar,
   CreateTicketRequest,
   GraphData,
+  JoinTicketRequest,
   Me,
   MeResponse,
   NearbyResponse,
@@ -64,8 +65,8 @@ export const api = {
   createTicket: (body: CreateTicketRequest) =>
     call<TicketView>("/api/tickets", { method: "POST", body }),
   ticket: (code: string) => call<TicketView>(ticketPath(code)),
-  join: (code: string) =>
-    call<TicketView>(`${ticketPath(code)}/join`, { method: "POST" }),
+  join: (code: string, body: JoinTicketRequest) =>
+    call<TicketView>(`${ticketPath(code)}/join`, { method: "POST", body }),
   submit: (code: string) =>
     call<TicketView>(`${ticketPath(code)}/submit`, { method: "POST" }),
   cancel: (code: string) => call<void>(ticketPath(code), { method: "DELETE" }),

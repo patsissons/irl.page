@@ -22,6 +22,17 @@ choose).
   so scanning it with any camera opens the app on that ticket. Anyone signed
   in can join an open ticket; only the creator can submit it. An open ticket
   expires after a day.
+- **You have to be there.** Creating a ticket and joining one both need
+  your location, and the Worker checks it is within about 300 m of the
+  venue. Scanning a code off someone's phone already means you're together,
+  but a link or a photo of the code can be sent anywhere. If location is off,
+  the page says so and how to turn it on. This relies on the position the
+  browser reports, so it deters remote joins rather than making them
+  impossible.
+- **Sharing** a ticket opens the system share sheet with its link. The link
+  unfurls in chat apps as the ticket: the Worker serves ticket links with
+  their own preview tags and renders a 1200x630 landscape ticket at
+  `/api/tickets/<code>/preview.png`. Only open tickets have a preview.
 - **Submitting** creates the venue if it is new, freezes the ticket, then
   writes graph nodes and edges: every attendee is linked to the venue and to
   every other attendee. A submitted ticket never changes again, with one
@@ -33,7 +44,9 @@ choose).
   already here, you're asked to use that one.
 - **Explore** (the home page) draws the graph in 3D, or on a globe with a
   heat map, a spike map, or arcs between the latest venues of people who
-  have met.
+  have met. Clicking a person or venue narrows both views to that node
+  and what it is directly linked to (`?focus=<node id>`); signed in, “Just
+  me” does the same for your own node.
 
 ### Data model
 
@@ -93,8 +106,10 @@ To try the two-person flow locally, open the app in two browser profiles (or
 one normal and one private window), sign in as different people, create a
 ticket in one and open its link in the other.
 
-The camera and location only work on a secure origin. `localhost` counts; to
-test on a phone, put the dev server behind an HTTPS tunnel.
+The camera, location and share sheet only work on a secure origin.
+`localhost` counts. To test on a phone on the same network, run `pnpm db` and
+`pnpm dev:https`, open `https://<this machine's address>:5173`, and accept the
+self-signed certificate warning.
 
 ### Real sign-in
 
@@ -110,6 +125,8 @@ A provider without a client id is simply not offered.
 
 - `pnpm dev`: PocketBase and the app together
 - `pnpm dev:web`: only the app (Vite plus the Worker)
+- `pnpm dev:https`: only the app, over HTTPS on every network interface,
+  for testing on a phone
 - `pnpm db`: only PocketBase
 - `pnpm db:seed`: fill an empty database with sample people, venues and
   tickets (`SEED_USERS`, `SEED_TICKETS` set the size)
@@ -140,5 +157,9 @@ Not deployed yet. The plan:
    instance.
 3. `pnpm deploy`. `wrangler.jsonc` routes the Worker to `irl.page`.
 4. Add deploy and PR-preview jobs to `.github/workflows/ci.yml`.
+
+Rendering the link-preview image takes tens of milliseconds of CPU, more than
+the Workers Free plan's 10 ms per request, so the Worker needs the Workers
+Paid plan. Images are cached at the edge for an hour.
 
 Never set `DEV_LOGIN` in production: it lets anyone sign in as anyone.
