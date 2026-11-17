@@ -52,7 +52,8 @@ function GitHubLogo() {
 /**
  * One provider's button. Apple asks for a black or white button and
  * Google allows either, so all three match: dark in light mode, light in
- * dark.
+ * dark. A three-column grid (logo, label, an empty column as wide as the
+ * logo) keeps the logos in one column and each label centred.
  */
 function ProviderButton({
   href,
@@ -67,10 +68,12 @@ function ProviderButton({
     <Button
       asChild
       size="lg"
-      className="bg-foreground text-background hover:bg-foreground/85"
+      className="grid grid-cols-[1rem_1fr_1rem] gap-2 bg-foreground px-4 text-background hover:bg-foreground/85"
     >
       <a href={href}>
-        {logo} Continue with {name}
+        {logo}
+        <span className="text-center">Continue with {name}</span>
+        <span aria-hidden="true" />
       </a>
     </Button>
   );
