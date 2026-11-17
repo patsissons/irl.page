@@ -22,6 +22,7 @@ export interface Me extends PublicUser {
 export interface AuthOptions {
   google: boolean;
   github: boolean;
+  apple: boolean;
   dev: boolean;
 }
 

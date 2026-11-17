@@ -14,6 +14,7 @@ export interface Session {
 export const NO_AUTH: AuthOptions = {
   google: false,
   github: false,
+  apple: false,
   dev: false,
 };
 

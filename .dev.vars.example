@@ -19,6 +19,13 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
+# Sign in with Apple: the Services ID, team id, key id and the key's .p8
+# contents (newlines kept, or written as \n). Apple won't redirect to
+# localhost, so it only works on an https origin it has registered.
+APPLE_CLIENT_ID=
+APPLE_TEAM_ID=
+APPLE_KEY_ID=
+APPLE_PRIVATE_KEY=
 
 # Local only: "1" adds a sign-in picker for seed users. Never set in production.
 DEV_LOGIN=1

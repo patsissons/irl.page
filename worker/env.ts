@@ -15,6 +15,12 @@ export interface Env {
   GOOGLE_CLIENT_SECRET?: string;
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
+  /** Sign in with Apple: the Services ID (worker/apple.ts). */
+  APPLE_CLIENT_ID?: string;
+  APPLE_TEAM_ID?: string;
+  /** The Sign in with Apple key's id, and its .p8 file's contents. */
+  APPLE_KEY_ID?: string;
+  APPLE_PRIVATE_KEY?: string;
   /** "1" enables the seed-user sign-in picker. Local development only. */
   DEV_LOGIN?: string;
   /**

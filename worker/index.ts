@@ -29,7 +29,9 @@ export interface Deps {
   png?: (svg: string) => Promise<Uint8Array>;
 }
 
-const AUTH_ROUTE = /^\/api\/auth\/(google|github)\/(login|callback)$/;
+const AUTH_ROUTE = /^\/api\/auth\/(google|github|apple)\/(login|callback)$/;
+/** Apple returns from sign-in with a form POST from its own site. */
+const APPLE_RETURN = "/api/auth/apple/callback";
 const PREVIEW_ROUTE = /^\/api\/tickets\/([^/]+)\/preview\.png$/;
 const TICKET_PAGE = /^\/ticket\/([^/]+)$/;
 /** A record id; "nearby" and "search" are too short to be one. */
@@ -71,12 +73,19 @@ export async function handleApi(
   const ctx = context(request, env, url, deps);
   const { method } = request;
   const safe = method === "GET" || method === "HEAD";
-  if (!safe && !sameOrigin(request, url)) return fail(403, "origin");
+  // The one cross-site POST: Apple's return. The state cookie, not the
+  // Origin, ties it to this browser's sign-in (worker/auth.ts).
+  const appleReturn = method === "POST" && url.pathname === APPLE_RETURN;
+  if (!safe && !appleReturn && !sameOrigin(request, url)) {
+    return fail(403, "origin");
+  }
   const only = (...methods: string[]) => methods.includes(method);
 
   const auth = AUTH_ROUTE.exec(url.pathname);
   if (auth) {
-    if (!only("GET")) return fail(405, "method");
+    if (!only(url.pathname === APPLE_RETURN ? "POST" : "GET")) {
+      return fail(405, "method");
+    }
     const provider = auth[1] as Provider;
     return auth[2] === "login"
       ? handleLogin(ctx, provider)

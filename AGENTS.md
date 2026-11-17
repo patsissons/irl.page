@@ -121,6 +121,9 @@ then deploys the Worker to `irl.page` (`deploy-worker`).
   changes, update it and its `PRIVACY_UPDATED` date in the same change.
 - **Every venue has a lat/lng.** A ticket can't be created without one.
 - **State-changing requests require the app's `Origin`** (`worker/index.ts`).
+  The one exception is Sign in with Apple's return, a form POST from
+  `appleid.apple.com` to `/api/auth/apple/callback`; the `SameSite=None`
+  state cookie is what ties it to the browser that started the sign-in.
 - **`DEV_LOGIN=1` is for local development and e2e only.** It lets anyone
   sign in as anyone. Never set it in production.
 - **Light and dark themes.** The theme is the `dark` class on `<html>`;
