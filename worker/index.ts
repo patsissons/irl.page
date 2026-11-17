@@ -7,6 +7,13 @@ import {
   handleLogout,
   type Provider,
 } from "./auth";
+import {
+  DEMO_NOW,
+  DEMO_READ_ONLY,
+  ReadOnlyError,
+  demoDatastore,
+  isDemo,
+} from "./demo";
 import type { Env } from "./env";
 import { handleGraph } from "./graph";
 import { fail, sameOrigin, type Ctx } from "./http";
@@ -28,19 +35,23 @@ const TICKET_PAGE = /^\/ticket\/([^/]+)$/;
 const TICKET_ROUTE = /^\/api\/tickets\/([^/]+)(?:\/(join|submit))?$/;
 
 function context(request: Request, env: Env, url: URL, deps: Deps): Ctx {
+  const demo = isDemo(env);
   return {
     request,
     env,
     url,
+    demo,
     db:
       deps.db ??
-      pocketbaseDatastore({
-        url: env.POCKETBASE_URL,
-        email: env.POCKETBASE_SUPERUSER_EMAIL,
-        password: env.POCKETBASE_SUPERUSER_PASSWORD,
-      }),
+      (demo
+        ? demoDatastore()
+        : pocketbaseDatastore({
+            url: env.POCKETBASE_URL,
+            email: env.POCKETBASE_SUPERUSER_EMAIL,
+            password: env.POCKETBASE_SUPERUSER_PASSWORD,
+          })),
     fetch: deps.fetch ?? ((input, init) => fetch(input, init)),
-    now: deps.now ?? (() => new Date()),
+    now: deps.now ?? (demo ? () => new Date(DEMO_NOW) : () => new Date()),
     // Loaded on demand: the renderer pulls in a WebAssembly module that
     // only the preview image needs (and that unit tests can't import).
     png:
@@ -142,6 +153,17 @@ export async function handleTicketPage(
   }
 }
 
+/** Keeps the demo's made-up world out of search results. */
+function unlisted(response: Response): Response {
+  const headers = new Headers(response.headers);
+  headers.set("x-robots-tag", "noindex");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url);
@@ -149,12 +171,16 @@ export default {
       try {
         return await handleApi(request, env, url);
       } catch (error) {
+        // The demo's last line of defence: a write nobody handled.
+        if (error instanceof ReadOnlyError) return fail(403, DEMO_READ_ONLY);
         console.error("api error", url.pathname, error);
         return fail(500, "something went wrong");
       }
     }
     const code = request.method === "GET" ? pageTicketCode(url) : null;
-    if (code) return handleTicketPage(request, env, url, code);
-    return env.ASSETS.fetch(request);
+    const page = code
+      ? await handleTicketPage(request, env, url, code)
+      : await env.ASSETS.fetch(request);
+    return isDemo(env) ? unlisted(page) : page;
   },
 } satisfies ExportedHandler<Env>;

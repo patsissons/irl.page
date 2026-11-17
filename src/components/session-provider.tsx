@@ -9,6 +9,8 @@ import type { MeResponse } from "@shared/types";
 import { api } from "@/lib/api";
 import { NO_AUTH, SessionContext, type Session } from "@/lib/session";
 
+const SIGNED_OUT: MeResponse = { user: null, auth: NO_AUTH, demo: false };
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<MeResponse | null>(null);
 
@@ -16,7 +18,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     try {
       setState(await api.me());
     } catch {
-      setState({ user: null, auth: NO_AUTH });
+      setState(SIGNED_OUT);
     }
   }, []);
 
@@ -24,7 +26,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     let live = true;
     api.me().then(
       (body) => live && setState(body),
-      () => live && setState({ user: null, auth: NO_AUTH }),
+      () => live && setState(SIGNED_OUT),
     );
     return () => {
       live = false;
@@ -36,6 +38,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       loading: state === null,
       user: state?.user ?? null,
       auth: state?.auth ?? NO_AUTH,
+      demo: state?.demo ?? false,
       refresh,
     }),
     [state, refresh],

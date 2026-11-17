@@ -139,7 +139,9 @@ A provider without a client id is simply not offered.
 - `pnpm site:images`: redraw `public/og.png` (the link-preview image) and
   `public/apple-touch-icon.png`
 - `pnpm db:deploy`: sync `pocketbase/pb_migrations` to the PocketHost instance
+- `pnpm dev:demo`: the demo site locally, with no database
 - `pnpm run deploy`: build and deploy the Worker
+- `pnpm deploy:demo`: build and deploy the demo Worker
 - `pnpm typecheck`: generate Worker types and type-check
 - `pnpm test`: unit tests
 - `pnpm test:e2e`: Playwright tests against a throwaway seeded PocketBase
@@ -205,6 +207,26 @@ pnpm exec wrangler secret put POCKETBASE_URL
 
 To deploy by hand, run `pnpm run deploy` (plain `pnpm deploy` is a different,
 built-in pnpm command).
+
+### Demo site
+
+`https://demo.irl.page` is the same app in demo mode (`worker/demo.ts`),
+deployed as a separate Worker, `irl-page-demo`, by the `deploy-demo` job on
+every push to `main`. It needs no database, no OAuth apps and no secrets:
+
+- **The data is made up and built in memory** from `shared/world.ts`, the
+  same generator the seed uses, with fixed ids, so every copy of the Worker
+  has exactly the same world. Nothing can change it: every write is refused.
+- **The clock is stopped** (`DEMO_NOW`), so dates never drift and the one
+  open ticket never expires.
+- **Sign-in is the made-up-people picker only.**
+- **"New ticket" runs the real flow** and always lands on the same ticket,
+  `demo2026`, shown as yours. Joining it works from anywhere. Both are
+  remembered only in your own session cookie. Submitting is switched off,
+  and avatars can't be changed.
+
+Run it locally with `pnpm dev:demo` (no PocketBase needed), and deploy it by
+hand with `pnpm deploy:demo`.
 
 Rendering the link-preview image takes tens of milliseconds of CPU, more than
 the Workers Free plan's 10 ms per request, so the Worker needs the Workers

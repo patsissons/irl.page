@@ -4,8 +4,15 @@ import { isPresent, validatePosition } from "../shared/proximity";
 import { MAX_PARTICIPANTS, isExpired, submitTicket } from "../shared/submit";
 import type { TicketView } from "../shared/types";
 import { validateDraft } from "../shared/venues";
+import { startSession } from "./auth";
+import {
+  DEMO_READ_ONLY,
+  DEMO_TICKET_CODE,
+  withDemoRole,
+  type DemoRole,
+} from "./demo";
 import { fail, json, readJson, type Ctx } from "./http";
-import { currentUser, publicUser, unknownUser } from "./users";
+import { currentUser, publicUser, unknownUser, type Signed } from "./users";
 
 /** Error codes the client turns into its location prompts. */
 export const LOCATION_REQUIRED = "location required";
@@ -75,6 +82,31 @@ async function findTicket(ctx: Ctx, code: string): Promise<TicketRec | null> {
   return ticket ?? null;
 }
 
+/**
+ * Demo site: the response for a visitor "making" or "joining" the demo
+ * ticket. Nothing is stored; the role goes into their session cookie and
+ * the ticket is shown to them with it applied. `role` null forgets it.
+ */
+async function demoRoleResponse(
+  ctx: Ctx,
+  signed: Signed,
+  ticket: TicketRec,
+  role: DemoRole | null,
+  status: number,
+): Promise<Response> {
+  const cookie = await startSession(
+    ctx,
+    signed.person.id,
+    signed.session.picture,
+    role ?? undefined,
+  );
+  if (!role)
+    return new Response(null, { status, headers: { "set-cookie": cookie } });
+  const shown = withDemoRole(ticket, signed.person.id, role);
+  const [view] = await views(ctx, [shown], signed.person);
+  return json(view, { status, headers: { "set-cookie": cookie } });
+}
+
 /** GET /api/tickets -> every ticket I created or joined, newest first. */
 export async function handleMyTickets(ctx: Ctx): Promise<Response> {
   const signed = await currentUser(ctx);
@@ -88,8 +120,18 @@ export async function handleMyTickets(ctx: Ctx): Promise<Response> {
       where: [{ field: "participants", op: "has", value: id }],
     }),
   ]);
+  // Demo site: the demo ticket is mine if my session says I made or joined it.
+  const demoTicket =
+    ctx.demo && signed.session.demo
+      ? await findTicket(ctx, DEMO_TICKET_CODE)
+      : null;
+  const extra =
+    demoTicket &&
+    ![...created, ...joined].some((ticket) => ticket.id === demoTicket.id)
+      ? [withDemoRole(demoTicket, id, signed.session.demo)]
+      : [];
   const when = (ticket: TicketRec) => ticket.submitted_at || ticket.created;
-  const mine = [...created, ...joined]
+  const mine = [...created, ...joined, ...extra]
     .filter((ticket) => !isExpired(ticket, ctx.now()))
     .sort((a, b) => (when(a) < when(b) ? 1 : -1));
   return json({ tickets: await views(ctx, mine, signed.person) });
@@ -100,6 +142,13 @@ export async function handleCreateTicket(ctx: Ctx): Promise<Response> {
   const signed = await currentUser(ctx);
   if (!signed) return fail(401, "sign in first");
   if (!signed.person.onboarded) return fail(403, "finish onboarding first");
+  if (ctx.demo) {
+    // Whatever venue was picked, "New ticket" leads to the one demo ticket,
+    // shown to this visitor as theirs. Where they are doesn't matter.
+    const ticket = await findTicket(ctx, DEMO_TICKET_CODE);
+    if (!ticket) return fail(404, "no such ticket");
+    return demoRoleResponse(ctx, signed, ticket, "creator", 201);
+  }
   const body = (await readJson(ctx.request)) as {
     venueId?: unknown;
     venue?: unknown;
@@ -150,10 +199,15 @@ export async function handleTicket(
 ): Promise<Response> {
   const { method } = ctx.request;
   const signed = await currentUser(ctx);
-  const ticket = await findTicket(ctx, code);
-  if (!ticket || isExpired(ticket, ctx.now()))
+  const stored = await findTicket(ctx, code);
+  if (!stored || isExpired(stored, ctx.now()))
     return fail(404, "no such ticket");
   const viewer = signed?.person ?? null;
+  // Demo site: the ticket as this visitor's session says they left it.
+  const ticket =
+    ctx.demo && signed
+      ? withDemoRole(stored, signed.person.id, signed.session.demo)
+      : stored;
   const respond = async (current: TicketRec, status = 200) =>
     json((await views(ctx, [current], viewer))[0], { status });
 
@@ -166,9 +220,24 @@ export async function handleTicket(
     return respond(ticket);
   }
 
-  if (!viewer) return fail(401, "sign in first");
+  if (!viewer || !signed) return fail(401, "sign in first");
   // The one rule that matters: a submitted ticket never changes again.
   if (ticket.status !== "open") return fail(409, "ticket already submitted");
+
+  if (ctx.demo) {
+    // Nothing is written. Joining the demo ticket, and backing out of it
+    // again, happen in the visitor's session; everything else is refused.
+    const { demo: role } = signed.session;
+    if (action === "join" && method === "POST") {
+      if (!viewer.onboarded) return fail(403, "finish onboarding first");
+      if (isMember(ticket, viewer.id)) return respond(ticket);
+      if (code !== DEMO_TICKET_CODE) return fail(403, DEMO_READ_ONLY);
+      return demoRoleResponse(ctx, signed, stored, "joined", 200);
+    }
+    if (!action && method === "DELETE" && role && code === DEMO_TICKET_CODE)
+      return demoRoleResponse(ctx, signed, stored, null, 204);
+    return fail(403, DEMO_READ_ONLY);
+  }
 
   if (action === "join" && method === "POST") {
     if (!viewer.onboarded) return fail(403, "finish onboarding first");
@@ -180,10 +249,10 @@ export async function handleTicket(
     const body = (await readJson(ctx.request)) as { at?: unknown } | null;
     const at = validatePosition(body?.at);
     if (!at) return fail(400, LOCATION_REQUIRED);
-    const stored = ticket.venue
+    const existing = ticket.venue
       ? await ctx.db.get("venues", ticket.venue)
       : null;
-    const venue = stored ?? ticket.venue_draft;
+    const venue = existing ?? ticket.venue_draft;
     if (!venue || !isPresent(at, venue)) return fail(403, TOO_FAR);
     return respond(await ctx.db.addParticipant(ticket.id, viewer.id));
   }

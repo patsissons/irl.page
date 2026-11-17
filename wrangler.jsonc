@@ -18,5 +18,26 @@
   "env": {
     // The Playwright run (CLOUDFLARE_ENV=e2e) reads .dev.vars.e2e.
     "e2e": { "routes": [] },
+    // The demo site (worker/demo.ts): a separate Worker, irl-page-demo, with
+    // a made-up world built in memory. It has no database, no OAuth and no
+    // secrets. SESSION_SECRET is public on purpose: the only thing a demo
+    // session says is which made-up person you picked, and anyone can pick
+    // anyone.
+    "demo": {
+      "routes": [{ "pattern": "demo.irl.page", "custom_domain": true }],
+      "vars": {
+        "DEMO": "1",
+        "SESSION_SECRET": "demo-site-sessions-are-not-secret",
+      },
+    },
+    // The demo under Playwright: no route, and no OpenStreetMap lookups.
+    "demo-e2e": {
+      "routes": [],
+      "vars": {
+        "DEMO": "1",
+        "SESSION_SECRET": "demo-site-sessions-are-not-secret",
+        "OSM_LOOKUP": "off",
+      },
+    },
   },
 }

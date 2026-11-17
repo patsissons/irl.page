@@ -5,6 +5,12 @@ import { defineConfig, devices } from "@playwright/test";
 // `vite dev` with the Worker in workerd, both reading .dev.vars.e2e. Ports
 // differ from local development, so a running `pnpm dev` is never touched.
 // OSM_LOOKUP=off there keeps the run off the public OpenStreetMap servers.
+//
+// The `demo` project runs e2e/demo.spec.ts against a second `vite dev` in
+// demo mode (worker/demo.ts), which needs no database at all.
+const DEMO_SPEC = /demo\.spec\.ts$/;
+const DEMO_URL = "http://localhost:5199";
+
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
@@ -22,11 +28,18 @@ export default defineConfig({
   projects: [
     {
       name: "desktop-chrome",
+      testIgnore: DEMO_SPEC,
       use: { ...devices["Desktop Chrome"] },
     },
     {
       name: "mobile-safari",
+      testIgnore: DEMO_SPEC,
       use: { ...devices["iPhone 14"] },
+    },
+    {
+      name: "demo",
+      testMatch: DEMO_SPEC,
+      use: { ...devices["Desktop Chrome"], baseURL: DEMO_URL },
     },
   ],
   webServer: [
@@ -39,6 +52,11 @@ export default defineConfig({
     {
       command: "CLOUDFLARE_ENV=e2e pnpm dev:web --port 5198 --strictPort",
       url: "http://localhost:5198/api/health",
+      reuseExistingServer: false,
+    },
+    {
+      command: "CLOUDFLARE_ENV=demo-e2e pnpm dev:web --port 5199 --strictPort",
+      url: `${DEMO_URL}/api/health`,
       reuseExistingServer: false,
     },
   ],

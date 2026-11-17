@@ -1,5 +1,6 @@
 import { randomId } from "../shared/ids";
 import type { AuthOptions } from "../shared/types";
+import { DEMO_READ_ONLY, isDemo, type DemoRole } from "./demo";
 import type { Env } from "./env";
 import { fail, json, readJson, redirect, safeNext, type Ctx } from "./http";
 import {
@@ -43,6 +44,8 @@ function credentials(
   env: Env,
   provider: Provider,
 ): { id: string; secret: string } | null {
+  // The demo has no real people, so no way for one to sign in.
+  if (isDemo(env)) return null;
   const [id, secret] =
     provider === "google"
       ? [env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET]
@@ -51,7 +54,7 @@ function credentials(
 }
 
 export function devLogin(env: Env): boolean {
-  return env.DEV_LOGIN === "1";
+  return env.DEV_LOGIN === "1" || isDemo(env);
 }
 
 export function authOptions(env: Env): AuthOptions {
@@ -158,12 +161,18 @@ async function githubIdentity(
   return { email: email.email, picture: user.avatar_url ?? null };
 }
 
-async function startSession(
+/** The Set-Cookie header for a session. */
+export async function startSession(
   ctx: Ctx,
   uid: string,
   picture: string | null,
+  demo?: DemoRole,
 ): Promise<string> {
-  const sealed = await sealSession(ctx.env.SESSION_SECRET, { uid, picture });
+  const sealed = await sealSession(ctx.env.SESSION_SECRET, {
+    uid,
+    picture,
+    ...(demo ? { demo } : {}),
+  });
   return cookieHeader(SESSION_COOKIE, sealed, {
     maxAge: SESSION_MAX_AGE,
     secure: isSecure(ctx.url),
@@ -218,8 +227,9 @@ export function handleLogout(ctx: Ctx): Response {
 }
 
 /**
- * Local development only (DEV_LOGIN=1): sign in as an existing person or a
- * brand-new one without an OAuth round trip.
+ * Local development (DEV_LOGIN=1) and the demo site: sign in as an existing
+ * person without an OAuth round trip, or, in development, as a brand-new
+ * one.
  *   GET  /api/auth/dev -> people to pick from
  *   POST /api/auth/dev { userId } | { fresh: true }
  */
@@ -235,11 +245,15 @@ export async function handleDev(ctx: Ctx): Promise<Response> {
   } | null;
   let uid: string;
   if (body?.fresh === true) {
+    if (ctx.demo) return fail(403, DEMO_READ_ONLY);
     const person = await personForEmail(
       ctx.db,
       `dev-${randomId(12)}@dev.invalid`,
       ctx.env.EMAIL_PEPPER,
       ctx.now().toISOString(),
+      // One round: this address is random and never signs in again, and
+      // the full half-second each made parallel test runs time out.
+      1,
     );
     uid = person.id;
   } else if (typeof body?.userId === "string") {

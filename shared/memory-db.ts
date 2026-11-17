@@ -27,8 +27,13 @@ function matches(row: Row, condition: Condition): boolean {
   }
 }
 
-/** An in-memory Datastore for tests. */
-export function memoryDatastore(): Datastore & {
+/**
+ * An in-memory Datastore, for tests and for the demo site. `id` replaces the
+ * random record ids, for a store that must come out the same every time.
+ */
+export function memoryDatastore(
+  options: { id?: () => string } = {},
+): Datastore & {
   tables: Record<CollectionName, Map<string, Row>>;
 } {
   const tables: Record<CollectionName, Map<string, Row>> = {
@@ -65,7 +70,8 @@ export function memoryDatastore(): Datastore & {
       return rows.map((row) => copy<Collections[C]>(row));
     },
     async create(collection, data) {
-      const row = { ...structuredClone(data), id: randomId(15) } as Row;
+      const id = options.id?.() ?? randomId(15);
+      const row = { ...structuredClone(data), id } as Row;
       tables[collection].set(row.id, row);
       return copy(row);
     },
