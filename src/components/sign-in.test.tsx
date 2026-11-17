@@ -44,6 +44,15 @@ describe("SignIn", () => {
       "href",
       "/api/auth/apple/login?next=%2Fticket%2Fasdf1234",
     );
+    expect(
+      screen
+        .getAllByRole("link", { name: /^Continue with/ })
+        .map((link) => link.textContent?.trim()),
+    ).toEqual([
+      "Continue with Google",
+      "Continue with Apple",
+      "Continue with GitHub",
+    ]);
     expect(screen.queryByText("Local development")).toBeNull();
   });
 

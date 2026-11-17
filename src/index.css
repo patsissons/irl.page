@@ -30,6 +30,10 @@
   --color-ticket: var(--ticket);
   --color-ticket-foreground: var(--ticket-foreground);
   --color-chart-visits: var(--chart-visits);
+  --color-google-blue: var(--google-blue);
+  --color-google-green: var(--google-green);
+  --color-google-yellow: var(--google-yellow);
+  --color-google-red: var(--google-red);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -75,6 +79,12 @@
   /* The one chart series. Each mode's step is checked against its card
      surface for contrast and lightness (the dataviz palette validator). */
   --chart-visits: #de3d34;
+  /* Google's "G", the same in both themes: its guidelines don't allow
+     recolouring it (the sign-in buttons, src/components/sign-in.tsx). */
+  --google-blue: #4285f4;
+  --google-green: #34a853;
+  --google-yellow: #fbbc05;
+  --google-red: #ea4335;
 }
 
 .dark {
