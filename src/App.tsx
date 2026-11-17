@@ -5,6 +5,7 @@ import { AppShell } from "./components/app-shell";
 import { Skeleton } from "./components/ui/skeleton";
 import { Explore } from "./pages/explore";
 import { MyTickets } from "./pages/my-tickets";
+import { Privacy } from "./pages/privacy";
 import { Profile } from "./pages/profile";
 import { TicketPage } from "./pages/ticket";
 
@@ -97,6 +98,14 @@ export default function App() {
         element={
           <Page>
             <Profile welcome />
+          </Page>
+        }
+      />
+      <Route
+        path="/privacy"
+        element={
+          <Page>
+            <Privacy />
           </Page>
         }
       />

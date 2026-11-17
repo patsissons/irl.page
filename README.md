@@ -19,7 +19,8 @@ choose).
   (`HMAC-SHA256(email, EMAIL_PEPPER)` stretched with 2,000,000 iterations of
   PBKDF2-HMAC-SHA512, see `shared/hash.ts`), and
   only that hash is stored. The provider's picture stays in the sealed
-  session cookie unless the person picks it as their avatar.
+  session cookie unless the person picks it as their avatar. The privacy
+  policy at `/privacy`, linked from sign-in, says this in plain words.
 - **A venue** has its own page (`/venue/<id>`), reached from its name when
   it is focused on the graph or globe: a map, a Google Maps link, visit
   counts, a running total of visits over time, and who has been there.
@@ -207,6 +208,10 @@ pnpm exec wrangler secret put POCKETBASE_URL
 - The OAuth client ids and secrets come from apps whose callbacks are
   `https://irl.page/api/auth/google/callback` and
   `https://irl.page/api/auth/github/callback`.
+- Google won't publish the OAuth app (Google Auth Platform → Audience)
+  until Branding has a home page and a privacy policy link:
+  `https://irl.page` and `https://irl.page/privacy`. The scopes (`openid`,
+  `email`, `profile`) are non-sensitive, so no verification is needed.
 
 To deploy by hand, run `pnpm run deploy` (plain `pnpm deploy` is a different,
 built-in pnpm command).

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 import type { AuthOptions } from "@shared/types";
 import { SessionContext } from "@/lib/session";
@@ -15,7 +16,9 @@ function show(auth: AuthOptions, demo = false) {
         refresh: async () => {},
       }}
     >
-      <SignIn next="/ticket/asdf1234" />
+      <MemoryRouter>
+        <SignIn next="/ticket/asdf1234" />
+      </MemoryRouter>
     </SessionContext.Provider>,
   );
 }
@@ -36,6 +39,13 @@ describe("SignIn", () => {
       "/api/auth/github/login?next=%2Fticket%2Fasdf1234",
     );
     expect(screen.queryByText("Local development")).toBeNull();
+  });
+
+  it("links the privacy policy", () => {
+    show({ google: true, github: false, dev: false });
+    expect(
+      screen.getByRole("link", { name: "How we handle your data" }),
+    ).toHaveAttribute("href", "/privacy");
   });
 
   it("hides providers that aren't configured", () => {

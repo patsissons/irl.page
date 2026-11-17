@@ -42,6 +42,16 @@ test("gated pages ask for sign-in", async ({ page }) => {
   await expectNoHorizontalScroll(page);
 });
 
+test("sign-in links the privacy policy", async ({ page }) => {
+  await page.goto("/tickets");
+  await page.getByRole("link", { name: "How we handle your data" }).click();
+  await expect(page).toHaveURL(/\/privacy$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Privacy" }),
+  ).toBeVisible();
+  await expectNoHorizontalScroll(page);
+});
+
 test("the scanner accepts a typed code", async ({ page }) => {
   await page.goto("/scan");
   await page.getByLabel("Or enter the ticket code").fill("not a code");

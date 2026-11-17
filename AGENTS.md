@@ -115,6 +115,10 @@ then deploys the Worker to `irl.page` (`deploy-worker`).
 - **Only open tickets unfurl.** `worker/preview.ts` gives a ticket link its
   preview tags and image only while the ticket is open and unexpired; a
   submitted ticket is members-only, so its link gets the plain app shell.
+- **The privacy page tells the truth.** `/privacy` (`src/pages/privacy.tsx`)
+  is linked from sign-in and from Google's OAuth consent screen. When what
+  is stored, shown publicly, sent to a third party, or kept in a cookie
+  changes, update it and its `PRIVACY_UPDATED` date in the same change.
 - **Every venue has a lat/lng.** A ticket can't be created without one.
 - **State-changing requests require the app's `Origin`** (`worker/index.ts`).
 - **`DEV_LOGIN=1` is for local development and e2e only.** It lets anyone
