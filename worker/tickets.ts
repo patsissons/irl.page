@@ -94,12 +94,11 @@ async function demoRoleResponse(
   role: DemoRole | null,
   status: number,
 ): Promise<Response> {
-  const cookie = await startSession(
-    ctx,
-    signed.person.id,
-    signed.session.picture,
-    role ?? undefined,
-  );
+  const cookie = await startSession(ctx, {
+    ...signed.session,
+    uid: signed.person.id,
+    demo: role ?? undefined,
+  });
   if (!role)
     return new Response(null, { status, headers: { "set-cookie": cookie } });
   const shown = withDemoRole(ticket, signed.person.id, role);

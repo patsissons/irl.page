@@ -10,7 +10,8 @@ can explore as a 3D network or on a globe.
 
 It collects very little. There are no names and no stored emails: a person is
 an id and an avatar (a blocky pattern by default, or an emoji or picture they
-choose).
+choose: any emoji from a searchable list, an image link or small pasted image,
+their sign-in picture, or a copy of their Gravatar).
 
 ## How it works
 
@@ -20,8 +21,11 @@ choose).
   (`HMAC-SHA256(email, EMAIL_PEPPER)` stretched with 2,000,000 iterations of
   PBKDF2-HMAC-SHA512, see `shared/hash.ts`), and
   only that hash is stored. The provider's picture stays in the sealed
-  session cookie unless the person picks it as their avatar. The privacy
-  policy at `/privacy`, linked from sign-in, says this in plain words.
+  session cookie unless the person picks it as their avatar. So does the
+  email's Gravatar key: the Worker looks the picture up itself and, if it's
+  chosen, stores a copy of the image, never the key or a gravatar.com link.
+  The privacy policy at `/privacy`, linked from sign-in, says this in plain
+  words.
 - **A venue** has its own page (`/venue/<id>`), reached from its name when
   it is focused on the graph or globe: a map, a Google Maps link, visit
   counts, a running total of visits over time, and who has been there.
@@ -155,6 +159,8 @@ cross-site POST and its state cookie is `SameSite=None`.
 - `pnpm build`: production build
 - `pnpm site:images`: redraw `public/og.png` (the link-preview image) and
   `public/apple-touch-icon.png`
+- `pnpm emoji:data`: regenerate the avatar picker's emoji
+  (`src/lib/emoji-data.json`) from `emojibase-data`
 - `pnpm db:deploy`: sync `pocketbase/pb_migrations` to the PocketHost instance
 - `pnpm dev:demo`: the demo site locally, with no database
 - `pnpm run deploy`: build and deploy the Worker

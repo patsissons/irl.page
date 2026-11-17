@@ -1,10 +1,22 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { avatarSvg, blocky, isEmoji, validateAvatar } from "./avatar.ts";
+import {
+  avatarSvg,
+  blocky,
+  isEmoji,
+  MAX_DATA_URI,
+  validateAvatar,
+} from "./avatar.ts";
+
+/** A data: URI of the given type, `length` characters long. */
+const dataUri = (type: string, length: number) => {
+  const prefix = `data:${type};base64,`;
+  return prefix + "A".repeat(length - prefix.length);
+};
 
 describe("validateAvatar", () => {
   it("accepts a single emoji, including joined and flag emoji", () => {
-    for (const emoji of ["🦊", "👩‍🚀", "🇨🇦", "👍🏽"]) {
+    for (const emoji of ["🦊", "👩‍🚀", "🇨🇦", "👍🏽", "1️⃣", "#️⃣", "🏴󠁧󠁢󠁳󠁣󠁴󠁿"]) {
       expect(validateAvatar({ kind: "emoji", value: emoji }, null)).toEqual({
         kind: "emoji",
         value: emoji,
@@ -30,6 +42,42 @@ describe("validateAvatar", () => {
     ]) {
       expect(validateAvatar({ kind: "url", value }, null)).toBeNull();
     }
+  });
+
+  it("accepts a small raster image as a data: URI", () => {
+    for (const type of ["image/png", "image/jpeg", "image/gif", "image/webp"]) {
+      const value = dataUri(type, MAX_DATA_URI);
+      expect(validateAvatar({ kind: "url", value }, null)).toEqual({
+        kind: "url",
+        value,
+      });
+    }
+  });
+
+  it("rejects SVG, other data, non-base64 and oversized data: URIs", () => {
+    for (const value of [
+      dataUri("image/svg+xml", 200),
+      dataUri("text/html", 200),
+      "data:image/png,rawbytes",
+      "data:image/png;base64,not base64!",
+      dataUri("image/png", MAX_DATA_URI + 1),
+    ]) {
+      expect(validateAvatar({ kind: "url", value }, null)).toBeNull();
+    }
+  });
+
+  it("uses the Worker's Gravatar copy, never the picture sent", () => {
+    const sent = { kind: "gravatar", value: dataUri("image/png", 100) };
+    const fetched = dataUri("image/jpeg", 300);
+    expect(validateAvatar(sent, null, fetched)).toEqual({
+      kind: "gravatar",
+      value: fetched,
+    });
+    expect(validateAvatar(sent, null, null)).toBeNull();
+    // Only image data: never a gravatar.com link, which carries the hash.
+    expect(
+      validateAvatar(sent, null, "https://gravatar.com/avatar/abc"),
+    ).toBeNull();
   });
 
   it("uses the session's picture for oauth, never the one sent", () => {

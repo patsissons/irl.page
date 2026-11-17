@@ -10,13 +10,15 @@ export async function seededVenue(page: Page): Promise<GraphVenue> {
 }
 
 /** Signs in as a brand-new person and picks an emoji avatar. */
+/** Signs in as a new person whose avatar is the emoji with this name. */
 export async function onboard(page: Page, emoji: string) {
   await page.getByRole("button", { name: "Sign in as a new person" }).click();
   await expect(
     page.getByRole("heading", { name: "Pick your avatar" }),
   ).toBeVisible();
   await page.getByRole("radio", { name: /Emoji/ }).check();
-  await page.getByRole("button", { name: `Use ${emoji}` }).click();
+  await page.getByLabel("Filter emoji").fill(emoji);
+  await page.getByRole("button", { name: emoji, exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();
 }
 

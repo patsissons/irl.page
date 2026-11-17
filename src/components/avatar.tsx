@@ -40,7 +40,9 @@ export function Avatar({
 }) {
   const [broken, setBroken] = useState<string | null>(null);
   const { kind, value } = user.avatar;
-  const picture = (kind === "url" || kind === "oauth") && broken !== value;
+  const picture =
+    (kind === "url" || kind === "oauth" || kind === "gravatar") &&
+    broken !== value;
 
   return (
     <span

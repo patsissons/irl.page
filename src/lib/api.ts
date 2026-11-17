@@ -55,6 +55,8 @@ export const api = {
     call<void>("/api/auth/dev", { method: "POST", body }),
   setAvatar: (avatar: Avatar) =>
     call<Me>("/api/me/avatar", { method: "PUT", body: avatar }),
+  /** The signed-in person's Gravatar as a data: URI, if they have one. */
+  gravatar: () => call<{ picture: string | null }>("/api/me/gravatar"),
   nearby: (lat: number, lng: number) =>
     call<NearbyResponse>(`/api/venues/nearby?lat=${lat}&lng=${lng}`),
   searchAddress: (q: string, near: { lat: number; lng: number } | null) =>

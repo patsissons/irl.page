@@ -128,6 +128,7 @@ describe("sessions and avatars", () => {
       onboarded: false,
       avatar: { kind: "blocky", value: "" },
       oauthPicture: null,
+      gravatar: false,
     });
 
     expect((await browser.post("/api/auth/logout")).status).toBe(204);
@@ -268,6 +269,93 @@ describe("OAuth sign-in", SLOW_HASH, () => {
     expect((await db.list("people"))[0].avatar_value).toBe(
       "https://pics.test/gh.png",
     );
+  });
+
+  describe("Gravatar", () => {
+    const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
+    const PNG_URI = `data:image/png;base64,${btoa(String.fromCharCode(...PNG))}`;
+    const sha256 = async (text: string) =>
+      [
+        ...new Uint8Array(
+          await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)),
+        ),
+      ]
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("");
+
+    /** The providers, plus Gravatar; records the hashes asked for. */
+    function withGravatar(asked: string[], found = true): typeof fetch {
+      return async (input, init) => {
+        const url = new URL(String(input));
+        if (url.host !== "gravatar.com") return provider(input, init);
+        asked.push(url.pathname.split("/").pop()!);
+        return found
+          ? new Response(PNG, { headers: { "content-type": "image/png" } })
+          : new Response("", { status: 404 });
+      };
+    }
+
+    it("keeps the key sealed in the session and copies the picture", async () => {
+      const db = memoryDatastore();
+      const asked: string[] = [];
+      const browser = client({ db, fetch: withGravatar(asked) });
+      await signIn(browser, "google");
+      const hash = await sha256("pat@example.com");
+
+      const meText = await (await browser.get("/api/me")).text();
+      expect((JSON.parse(meText) as MeResponse).user?.gravatar).toBe(true);
+      const lookup = await (await browser.get("/api/me/gravatar")).text();
+      expect(JSON.parse(lookup)).toEqual({ picture: PNG_URI });
+      expect(asked).toEqual([hash]);
+
+      // A picture the client sends is ignored: the Worker fetches its own.
+      const saved = await browser.send("PUT", "/api/me/avatar", {
+        kind: "gravatar",
+        value: "data:image/png;base64,Zm9yZ2Vk",
+      });
+      expect(saved.status).toBe(200);
+      const savedText = await saved.text();
+      expect((await db.list("people"))[0]).toMatchObject({
+        avatar_kind: "gravatar",
+        avatar_value: PNG_URI,
+      });
+
+      // The hash went to Gravatar and nowhere else.
+      for (const text of [
+        meText,
+        lookup,
+        savedText,
+        JSON.stringify([...db.tables.people.values()]),
+        [...browser.jar.values()].join(";"),
+      ]) {
+        expect(text).not.toContain(hash);
+      }
+    });
+
+    it("offers nothing without a Gravatar or a sign-in email", async () => {
+      const asked: string[] = [];
+      const missing = client({
+        db: memoryDatastore(),
+        fetch: withGravatar(asked, false),
+      });
+      await signIn(missing, "google");
+      expect(await (await missing.get("/api/me/gravatar")).json()).toEqual({
+        picture: null,
+      });
+      expect(
+        (await missing.send("PUT", "/api/me/avatar", { kind: "gravatar" }))
+          .status,
+      ).toBe(400);
+
+      const dev = client({ db: memoryDatastore(), fetch: withGravatar(asked) });
+      await dev.post("/api/auth/dev", { fresh: true });
+      const me = (await (await dev.get("/api/me")).json()) as MeResponse;
+      expect(me.user?.gravatar).toBe(false);
+      expect(await (await dev.get("/api/me/gravatar")).json()).toEqual({
+        picture: null,
+      });
+      expect(asked).toHaveLength(2);
+    });
   });
 
   it("rejects a callback whose state doesn't match", async () => {

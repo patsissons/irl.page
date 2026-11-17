@@ -17,7 +17,7 @@ test("two people meet: create, scan to join, submit, recall", async ({
 
   // The host signs up, then picks the venue they are standing in.
   await host.page.goto("/new");
-  await onboard(host.page, "🚀");
+  await onboard(host.page, "rocket");
   await expect(host.page).toHaveURL(/\/new$/);
   const nearby = host.page.getByRole("list", { name: "Nearby venues" });
   const row = nearby.getByRole("button", { name: new RegExp(venue.name) });
@@ -66,7 +66,7 @@ test("two people meet: create, scan to join, submit, recall", async ({
     lng: venue.lng,
   });
   await remote.page.goto(`/?ticket=${code}`);
-  await onboard(remote.page, "🐝");
+  await onboard(remote.page, "honeybee");
   await expect(remote.page.getByRole("alert")).toContainText(
     "You need to be there to join",
   );
@@ -82,7 +82,7 @@ test("two people meet: create, scan to join, submit, recall", async ({
   });
   const blockedPage = await blocked.newPage();
   await blockedPage.goto(`/?ticket=${code}`);
-  await onboard(blockedPage, "🦉");
+  await onboard(blockedPage, "owl");
   await expect(blockedPage.getByRole("alert")).toContainText(
     /Location is turned off|couldn't find where you are/,
   );
@@ -97,7 +97,7 @@ test("two people meet: create, scan to join, submit, recall", async ({
   await expect(
     guest.page.getByRole("heading", { name: "Sign in to join this ticket" }),
   ).toBeVisible();
-  await onboard(guest.page, "🍕");
+  await onboard(guest.page, "pizza");
   await expect(guest.page).toHaveURL(new RegExp(`/ticket/${code}$`));
   await guest.page.getByRole("button", { name: "Join this ticket" }).click();
   await expect(guest.page.getByText("You're on the ticket")).toBeVisible();
@@ -143,7 +143,7 @@ test("adding a venue by hand offers the existing one, or creates a new one", asy
   const venue = await seededVenue(page);
   const host = await visitor(browser, baseURL, venue);
   await host.page.goto("/new");
-  await onboard(host.page, "🌵");
+  await onboard(host.page, "cactus");
 
   await host.page.getByRole("tab", { name: "Somewhere else" }).click();
   await expect(host.page.getByTestId("pin")).toContainText(
@@ -181,7 +181,7 @@ test("adding a venue by hand offers the existing one, or creates a new one", asy
 
 test("the avatar can be changed from the profile", async ({ page }) => {
   await page.goto("/profile");
-  await onboard(page, "🎸");
+  await onboard(page, "guitar");
   await page.goto("/profile");
   await expect(
     page.getByRole("heading", { name: "Your avatar" }),
@@ -194,13 +194,38 @@ test("the avatar can be changed from the profile", async ({ page }) => {
   await page.reload();
   await expect(page.getByRole("radio", { name: /Blocky/ })).toBeChecked();
 
+  // A small image pasted as a data: URI, longer than the old 500-character
+  // column, is saved whole.
+  const image = `data:image/png;base64,${"A".repeat(4000)}`;
+  await page.getByRole("radio", { name: /Image link/ }).check();
+  await page.getByRole("textbox", { name: "Image link" }).fill(image);
+  await page.getByRole("button", { name: "Save avatar" }).click();
+  await expect(
+    page.getByRole("link", { name: "Your profile" }).getByRole("img"),
+  ).toHaveAttribute("data-avatar-kind", "url");
+  await page.reload();
+  await expect(page.getByRole("textbox", { name: "Image link" })).toHaveValue(
+    image,
+  );
+
+  // A toned emoji, picked from the list.
+  await page.getByRole("radio", { name: /Emoji/ }).check();
+  await page.getByRole("radio", { name: "Medium-dark skin tone" }).click();
+  await page.getByLabel("Filter emoji").fill("thumbs up");
+  await page.getByRole("button", { name: "thumbs up", exact: true }).click();
+  await page.getByRole("button", { name: "Save avatar" }).click();
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "thumbs up", exact: true }),
+  ).toHaveText("👍🏾");
+
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByRole("link", { name: "Your profile" })).toHaveCount(0);
 });
 
 test("making a ticket needs location to be on", async ({ page }) => {
   await page.goto("/new");
-  await onboard(page, "🍉");
+  await onboard(page, "watermelon");
   const banner = page.getByRole("alert");
   await expect(banner).toContainText(
     /Location is turned off|couldn't find where you are/,
