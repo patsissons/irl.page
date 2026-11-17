@@ -1,0 +1,10 @@
+pnpm-lock.yaml
+worker-configuration.d.ts
+dist/
+coverage/
+playwright-report/
+test-results/
+.wrangler/
+pocketbase/pb_data/
+pocketbase/pb_data_e2e/
+pocketbase/pocketbase
