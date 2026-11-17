@@ -147,9 +147,12 @@ const plans = Array.from({ length: USERS }, (_, index) => {
 });
 await pooled(plans, 8, async (plan) => {
   const record = await db.create("people", {
+    // One round: nobody signs in as a seed address, and the full cost
+    // (about half a second each) would make seeding take minutes.
     email_hash: await emailHash(
       `seed-${plan.index}@seed.invalid`,
       env.EMAIL_PEPPER,
+      1,
     ),
     avatar_kind: plan.emoji ? "emoji" : "blocky",
     avatar_value: plan.emoji ?? "",

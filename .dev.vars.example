@@ -9,7 +9,8 @@ POCKETBASE_SUPERUSER_PASSWORD=
 # 32+ random bytes each: `openssl rand -base64 32`.
 # Rotating SESSION_SECRET signs everyone out.
 SESSION_SECRET=
-# Keys the email hash. Rotating it orphans every account, so set it once.
+# Keys the email hash. Rotating it orphans every account, so set it once
+# and keep a copy: there is no email on file to match people up again.
 EMAIL_PEPPER=
 
 # OAuth apps. Callback URLs: <origin>/api/auth/google/callback and
