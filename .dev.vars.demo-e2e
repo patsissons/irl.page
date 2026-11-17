@@ -1,0 +1,5 @@
+# The demo site under Playwright (CLOUDFLARE_ENV=demo-e2e). Not secrets. This
+# file exists so that run never reads your own .dev.vars, whose OSM_LOOKUP
+# would otherwise override the "off" in wrangler.jsonc and send test traffic
+# to the public OpenStreetMap servers.
+OSM_LOOKUP=off
