@@ -113,3 +113,57 @@ test("a focus link shows one node's connections and can be cleared", async ({
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Just me" })).toBeDisabled();
 });
+
+test("a focused venue's name leads to its page", async ({ page }) => {
+  const graph = (await (await page.request.get("/api/graph")).json()) as {
+    venues: { id: string; venueId: string; name: string; visits: number }[];
+  };
+  const [venue] = graph.venues.sort((a, b) => b.visits - a.visits);
+  await page.goto(`/?focus=${venue.id}`);
+  await page
+    .getByRole("status")
+    .getByRole("link", { name: venue.name })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/venue/${venue.venueId}$`));
+
+  await expect(
+    page.getByRole("heading", { level: 1, name: venue.name }),
+  ).toBeVisible();
+  // Other specs add tickets while this runs, so read the numbers back.
+  const detail = (await (
+    await page.request.get(`/api/venues/${venue.venueId}`)
+  ).json()) as { lat: number; lng: number };
+  const stat = (label: string) =>
+    page.locator("dl > div").filter({ hasText: label }).locator("dd");
+  await expect(stat("Visits")).toHaveText(/^\d+$/);
+  expect(Number(await stat("Visits").innerText())).toBeGreaterThanOrEqual(
+    venue.visits,
+  );
+  await expect(
+    page.getByRole("application", { name: `Map showing ${venue.name}` }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Open in Google Maps" }),
+  ).toHaveAttribute(
+    "href",
+    new RegExp(`google\\.com/maps/search/.*${detail.lat.toFixed(6)}`),
+  );
+  await expect(
+    page.getByRole("group", { name: /Running total of visits/ }),
+  ).toBeVisible();
+  // Everyone counted is listed (both numbers come from the same load).
+  await expect(
+    page.getByRole("list", { name: "People who visited" }).getByRole("link"),
+  ).toHaveCount(Number(await stat("People").innerText()));
+  await expectNoHorizontalScroll(page);
+
+  // And back to the graph, focused on the venue.
+  await page.getByRole("link", { name: "Show on the graph" }).click();
+  await expect(page).toHaveURL(new RegExp(`focus=${venue.id}`));
+  await expect(page.getByRole("status")).toContainText(venue.name);
+
+  await page.goto("/venue/aaaaaaaaaaaaaaa");
+  await expect(
+    page.getByRole("heading", { name: "That venue isn't on IRL Page" }),
+  ).toBeVisible();
+});

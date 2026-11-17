@@ -15,16 +15,21 @@ const STYLE = "https://tiles.openfreemap.org/styles/liberty";
 setWorkerUrl(workerUrl);
 
 /**
- * A map with one draggable pin. Tap the map or drag the pin to set where
- * the venue is; `onChange` reports the new position.
+ * A map with one pin. With `onChange`, tap the map or drag the pin to set
+ * where the venue is and the new position is reported. Without it, the map
+ * only shows where the venue is.
  */
 export default function VenueMap({
   value,
   onChange,
+  label,
 }: {
   value: LatLng | null;
-  onChange: (position: LatLng) => void;
+  onChange?: (position: LatLng) => void;
+  /** Names the map for screen readers when it isn't for placing a pin. */
+  label?: string;
 }) {
+  const editable = onChange !== undefined;
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibre | null>(null);
   const marker = useRef<Marker | null>(null);
@@ -44,7 +49,7 @@ export default function VenueMap({
     });
     instance.addControl(new NavigationControl({ showCompass: false }));
     instance.on("click", (event: MapMouseEvent) =>
-      report.current({ lat: event.lngLat.lat, lng: event.lngLat.lng }),
+      report.current?.({ lat: event.lngLat.lat, lng: event.lngLat.lng }),
     );
     map.current = instance;
     return () => {
@@ -59,12 +64,12 @@ export default function VenueMap({
     if (!instance || !value) return;
     const position: [number, number] = [value.lng, value.lat];
     if (!marker.current) {
-      const pin = new Marker({ draggable: true, color: "#f0523d" })
+      const pin = new Marker({ draggable: editable, color: "#f0523d" })
         .setLngLat(position)
         .addTo(instance);
       pin.on("dragend", () => {
         const { lat, lng } = pin.getLngLat();
-        report.current({ lat, lng });
+        report.current?.({ lat, lng });
       });
       marker.current = pin;
       instance.jumpTo({ center: position, zoom: 16 });
@@ -75,13 +80,13 @@ export default function VenueMap({
         zoom: Math.max(instance.getZoom(), 15),
       });
     }
-  }, [value]);
+  }, [value, editable]);
 
   return (
     <div
       ref={container}
       role="application"
-      aria-label="Map: tap to place the venue pin"
+      aria-label={label ?? "Map: tap to place the venue pin"}
       className="h-72 w-full overflow-hidden rounded-2xl border"
     />
   );

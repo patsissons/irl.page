@@ -20,6 +20,9 @@ choose).
   PBKDF2-HMAC-SHA512, see `shared/hash.ts`), and
   only that hash is stored. The provider's picture stays in the sealed
   session cookie unless the person picks it as their avatar.
+- **A venue** has its own page (`/venue/<id>`), reached from its name when
+  it is focused on the graph or globe: a map, a Google Maps link, visit
+  counts, a running total of visits over time, and who has been there.
 - **A ticket** starts open. Its QR code is `https://irl.page?ticket=<code>`,
   so scanning it with any camera opens the app on that ticket. Anyone signed
   in can join an open ticket; only the creator can submit it. An open ticket

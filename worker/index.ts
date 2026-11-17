@@ -20,7 +20,7 @@ import { fail, sameOrigin, type Ctx } from "./http";
 import { handleAvatar, handleMe } from "./me";
 import { handlePreviewImage, injectPreview, ticketPreview } from "./preview";
 import { handleCreateTicket, handleMyTickets, handleTicket } from "./tickets";
-import { handleAddressSearch, handleNearby } from "./venues";
+import { handleAddressSearch, handleNearby, handleVenue } from "./venues";
 
 export interface Deps {
   db?: Datastore;
@@ -32,6 +32,8 @@ export interface Deps {
 const AUTH_ROUTE = /^\/api\/auth\/(google|github)\/(login|callback)$/;
 const PREVIEW_ROUTE = /^\/api\/tickets\/([^/]+)\/preview\.png$/;
 const TICKET_PAGE = /^\/ticket\/([^/]+)$/;
+/** A record id; "nearby" and "search" are too short to be one. */
+const VENUE_ROUTE = /^\/api\/venues\/([a-z0-9]{15})$/;
 const TICKET_ROUTE = /^\/api\/tickets\/([^/]+)(?:\/(join|submit))?$/;
 
 function context(request: Request, env: Env, url: URL, deps: Deps): Ctx {
@@ -88,6 +90,10 @@ export async function handleApi(
   }
   const ticket = TICKET_ROUTE.exec(url.pathname);
   if (ticket) return handleTicket(ctx, ticket[1], ticket[2]);
+  const venue = VENUE_ROUTE.exec(url.pathname);
+  if (venue) {
+    return only("GET") ? handleVenue(ctx, venue[1]) : fail(405, "method");
+  }
 
   switch (url.pathname) {
     case "/api/health":

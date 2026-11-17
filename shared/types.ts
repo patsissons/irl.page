@@ -132,6 +132,47 @@ export interface GraphData {
   tickets: number;
 }
 
+/** Someone who has been to a venue. */
+export interface VenueVisitor {
+  user: PublicUser;
+  /** Their node on the graph, to focus on. */
+  nodeId: string | null;
+  /** Tickets at this venue they were on. */
+  visits: number;
+}
+
+/** One day at a venue, by the venue's (estimated) local date. */
+export interface VenueDay {
+  /** YYYY-MM-DD. */
+  date: string;
+  tickets: number;
+  /** People on those tickets. */
+  visits: number;
+}
+
+/** GET /api/venues/<id>: the venue page. */
+export interface VenueDetail {
+  id: string;
+  /** The venue's node on the graph, to focus on. */
+  nodeId: string | null;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  /** Submitted tickets here. */
+  tickets: number;
+  /** People on those tickets, counted once per ticket. */
+  visits: number;
+  /** Distinct people. */
+  people: number;
+  firstVisit: string | null;
+  lastVisit: string | null;
+  /** Regulars first. */
+  visitors: VenueVisitor[];
+  /** Days with at least one ticket, oldest first. */
+  days: VenueDay[];
+}
+
 export interface ApiError {
   error: string;
 }

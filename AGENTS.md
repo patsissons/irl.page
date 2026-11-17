@@ -92,7 +92,10 @@ then deploys the Worker to `irl.page` (`deploy-worker`).
 - **Privacy of tickets:** an open ticket is readable by anyone holding its
   code (the code is the invitation); a submitted one only by its creator
   and participants. The public graph (`/api/graph`) exposes ids, avatars,
-  venue names and locations, and edges, and nothing else.
+  venue names and locations, and edges, and nothing else. The venue page
+  (`/api/venues/<id>`, `shared/venue-detail.ts`) is public too and is the
+  same facts counted up: who has been to a venue and how often, and visits
+  per day. It must not gain anything the graph doesn't already imply.
 - **The QR link is `<origin>/?ticket=<code>`** so any camera app can open
   it; `src/App.tsx` forwards it to `/ticket/<code>`, and the sign-in and
   onboarding detour returns there (`next`, validated by `safeNext`).
