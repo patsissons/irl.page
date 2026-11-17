@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#141218" />
+    <script>
+      // Apply the theme before first paint so there is no flash. Mirrors
+      // src/lib/theme.ts, which takes over once the app loads.
+      (function () {
+        var theme;
+        try {
+          theme = localStorage.getItem("irl:theme");
+        } catch (e) {}
+        if (theme !== "light" && theme !== "dark") {
+          theme = matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light";
+        }
+        var root = document.documentElement;
+        root.classList.toggle("dark", theme === "dark");
+        root.style.colorScheme = theme;
+        document
+          .querySelector('meta[name="theme-color"]')
+          .setAttribute("content", theme === "dark" ? "#141218" : "#faf8f5");
+      })();
+    </script>
+    <title>IRL Page</title>
+    <meta
+      name="description"
+      content="A map of people who met in real life. Make a ticket where you are, let friends scan it, and watch the graph grow."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="irl.page" />
+    <meta property="og:title" content="IRL Page" />
+    <meta
+      property="og:description"
+      content="A map of people who met in real life."
+    />
+    <meta property="og:url" content="https://irl.page/" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
