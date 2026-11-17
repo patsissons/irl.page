@@ -1,7 +1,7 @@
 import type { Datastore } from "../shared/db";
 import type { Env } from "./env";
 
-/** Everything a handler needs; tests swap `db`, `fetch` and `now`. */
+/** Everything a handler needs; tests swap `db`, `fetch`, `now` and `png`. */
 export interface Ctx {
   request: Request;
   env: Env;
@@ -9,6 +9,8 @@ export interface Ctx {
   db: Datastore;
   fetch: typeof fetch;
   now: () => Date;
+  /** Rasterises an SVG to PNG. */
+  png: (svg: string) => Promise<Uint8Array>;
 }
 
 export function json(body: unknown, init: ResponseInit = {}): Response {
