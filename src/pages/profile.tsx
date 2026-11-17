@@ -104,7 +104,7 @@ export function Profile({ welcome = false }: { welcome?: boolean }) {
   const current = user.avatar;
   const selected = kind ?? current.kind;
   const emojiValue = emoji ?? (current.kind === "emoji" ? current.value : "🦊");
-  const urlValue = url ?? (current.kind === "url" ? current.value : "");
+  const urlValue = url ?? user.avatarLink ?? "";
   const draft: AvatarValue =
     selected === "emoji"
       ? { kind: "emoji", value: emojiValue.trim() }

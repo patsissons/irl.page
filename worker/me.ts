@@ -1,4 +1,4 @@
-import { validateAvatar } from "../shared/avatar";
+import { avatarVersion, validateAvatar } from "../shared/avatar";
 import type { PersonRec } from "../shared/db";
 import type { Me, MeResponse } from "../shared/types";
 import { authOptions } from "./auth";
@@ -9,10 +9,14 @@ import type { SessionPayload } from "./session";
 import { currentUser, publicUser } from "./users";
 
 function me(person: PersonRec, session: SessionPayload): Me {
+  const picture = session.picture;
   return {
     ...publicUser(person),
     onboarded: person.onboarded,
-    oauthPicture: session.picture,
+    oauthPicture: picture
+      ? `/api/me/picture?v=${avatarVersion({ kind: "oauth", value: picture })}`
+      : null,
+    avatarLink: person.avatar_kind === "url" ? person.avatar_value : null,
     gravatar: Boolean(session.gravatar),
   };
 }

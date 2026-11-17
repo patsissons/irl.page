@@ -24,6 +24,8 @@ their sign-in picture, or a copy of their Gravatar).
   session cookie unless the person picks it as their avatar. So does the
   email's Gravatar key: the Worker looks the picture up itself and, if it's
   chosen, stores a copy of the image, never the key or a gravatar.com link.
+  Pictures reach browsers only as `/api/people/<id>/avatar` links, served
+  by the Worker (`worker/avatars.ts`), so a picture's own URL never does.
   The privacy policy at `/privacy`, linked from sign-in, says this in plain
   words.
 - **A venue** has its own page (`/venue/<id>`), reached from its name when

@@ -1,11 +1,19 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { emailHash } from "../shared/hash";
+import { publicAvatar } from "../shared/avatar";
+import type { Datastore } from "../shared/db";
 import { memoryDatastore } from "../shared/memory-db";
-import { DRAFT } from "../shared/testing";
-import type { MeResponse, NearbyResponse, TicketView } from "../shared/types";
+import { DRAFT, person } from "../shared/testing";
+import type {
+  AvatarKind,
+  MeResponse,
+  NearbyResponse,
+  TicketView,
+} from "../shared/types";
 import type { Env } from "./env";
 import { handleApi, type Deps } from "./index";
+import { MAX_IMAGE_BYTES } from "./avatars";
 import { personForEmail } from "./users";
 
 const ORIGIN = "https://irl.test";
@@ -221,6 +229,10 @@ describe("OAuth sign-in", SLOW_HASH, () => {
       ]);
     if (url.endsWith("/user"))
       return Response.json({ avatar_url: "https://pics.test/gh.png" });
+    if (url.startsWith("https://pics.test/"))
+      return new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), {
+        headers: { "content-type": "image/png" },
+      });
     return new Response("unexpected", { status: 500 });
   };
 
@@ -249,7 +261,11 @@ describe("OAuth sign-in", SLOW_HASH, () => {
     const viaGoogle = (await (
       await browser.get("/api/me")
     ).json()) as MeResponse;
-    expect(viaGoogle.user?.oauthPicture).toBe("https://pics.test/pat.png");
+    // A link to the Worker's copy: the provider's URL stays in the session.
+    expect(viaGoogle.user?.oauthPicture).toMatch(/^\/api\/me\/picture\?v=/);
+    const mine = await browser.get(viaGoogle.user!.oauthPicture!);
+    expect(mine.status).toBe(200);
+    expect(mine.headers.get("content-type")).toBe("image/png");
 
     await signIn(browser, "github");
     const people = await db.list("people");
@@ -858,6 +874,32 @@ describe("venues and graph", () => {
     expect((await host.get("/api/venues/search?q=ab")).status).toBe(400);
   });
 
+  it("shows pictures only as links to the Worker's copy", async () => {
+    const { db, host } = await seeded();
+    const [a, b] = await db.list("people");
+    await db.update("people", a.id, {
+      avatar_kind: "url",
+      avatar_value: "https://host.test/me.png",
+    });
+    await db.update("people", b.id, {
+      avatar_kind: "gravatar",
+      avatar_value: "data:image/png;base64,iVBORw0KGgo=",
+    });
+    const [venue] = await db.list("venues");
+    for (const path of [
+      "/api/graph",
+      `/api/venues/${venue.id}`,
+      "/api/tickets",
+    ]) {
+      const response = await host.get(path);
+      expect(response.status).toBe(200);
+      const text = await response.text();
+      expect(text).not.toContain("host.test");
+      expect(text).not.toContain("data:image");
+      expect(text).toContain(`/api/people/${a.id}/avatar?v=`);
+    }
+  });
+
   it("serves the public graph without any email hash", async () => {
     const { db } = await seeded();
     const response = await client({ db }).get("/api/graph");
@@ -880,5 +922,115 @@ describe("venues and graph", () => {
     expect(await (await browser.get("/api/health")).text()).toBe("ok");
     expect((await browser.get("/api/nope")).status).toBe(404);
     expect((await browser.post("/api/graph")).status).toBe(405);
+  });
+});
+
+describe("avatar pictures", () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 9, 9]);
+  const png = (headers: Record<string, string> = {}) =>
+    new Response(PNG, { headers: { "content-type": "image/png", ...headers } });
+
+  /** A person whose avatar is this picture, and the link given out for it. */
+  async function pictured(db: Datastore, kind: AvatarKind, value: string) {
+    const someone = await person(db, 1);
+    await db.update("people", someone.id, {
+      avatar_kind: kind,
+      avatar_value: value,
+    });
+    const graphAvatar = publicAvatar({
+      id: someone.id,
+      avatar_kind: kind,
+      avatar_value: value,
+    });
+    return { id: someone.id, link: graphAvatar.value };
+  }
+
+  it("serves a linked picture from this origin, safely, cached by version", async () => {
+    const db = memoryDatastore();
+    const asked: string[] = [];
+    const browser = client({
+      db,
+      fetch: async (input) => {
+        asked.push(String(input));
+        return png();
+      },
+    });
+    const { id, link } = await pictured(db, "url", "https://host.test/me.png");
+    const response = await browser.get(link);
+    expect(response.status).toBe(200);
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(PNG);
+    expect(asked).toEqual(["https://host.test/me.png"]);
+    expect(Object.fromEntries(response.headers)).toMatchObject({
+      "content-type": "image/png",
+      "cache-control": "public, max-age=86400",
+      "x-content-type-options": "nosniff",
+      "content-security-policy": "default-src 'none'; sandbox",
+      "cross-origin-resource-policy": "same-origin",
+    });
+    // An old version's link still works, but isn't cached for long.
+    const stale = await browser.get(`/api/people/${id}/avatar?v=old`);
+    expect(stale.headers.get("cache-control")).toBe("public, max-age=60");
+  });
+
+  it("serves a stored image without fetching anything", async () => {
+    const db = memoryDatastore();
+    const browser = client({
+      db,
+      fetch: async () => new Response("unexpected", { status: 500 }),
+    });
+    const data = `data:image/webp;base64,${btoa(String.fromCharCode(...PNG))}`;
+    const { link } = await pictured(db, "gravatar", data);
+    const response = await browser.get(link);
+    expect(response.headers.get("content-type")).toBe("image/webp");
+    expect(response.headers.get("cache-control")).toBe(
+      "public, max-age=604800, immutable",
+    );
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(PNG);
+  });
+
+  it("refuses what isn't a small https raster image", async () => {
+    const redirectedToHttp = png();
+    Object.defineProperty(redirectedToHttp, "url", {
+      value: "http://host.test/me.png",
+    });
+    for (const answer of [
+      () =>
+        new Response("<svg/>", {
+          headers: { "content-type": "image/svg+xml" },
+        }),
+      () =>
+        new Response("<html>", { headers: { "content-type": "text/html" } }),
+      () => png({ "content-length": String(MAX_IMAGE_BYTES + 1) }),
+      () =>
+        new Response(new Uint8Array(MAX_IMAGE_BYTES + 1), {
+          headers: { "content-type": "image/png" },
+        }),
+      () => redirectedToHttp,
+      () => new Response("gone", { status: 404 }),
+      () => {
+        throw new Error("timed out");
+      },
+    ]) {
+      const db = memoryDatastore();
+      const browser = client({ db, fetch: async () => answer() });
+      const { link } = await pictured(db, "url", "https://host.test/me.png");
+      const response = await browser.get(link);
+      expect(response.status).toBe(404);
+      expect(response.headers.get("cache-control")).toBe("public, max-age=300");
+    }
+  });
+
+  it("has nothing for emoji, blocky or unknown people", async () => {
+    const db = memoryDatastore();
+    const browser = client({ db, fetch: async () => png() });
+    const emoji = await pictured(db, "emoji", "🦊");
+    expect(emoji.link).toBe("🦊");
+    expect((await browser.get(`/api/people/${emoji.id}/avatar`)).status).toBe(
+      404,
+    );
+    expect(
+      (await browser.get("/api/people/aaaaaaaaaaaaaaa/avatar")).status,
+    ).toBe(404);
+    expect((await browser.get("/api/me/picture")).status).toBe(404);
   });
 });

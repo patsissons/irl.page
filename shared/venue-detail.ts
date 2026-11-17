@@ -1,3 +1,4 @@
+import { publicAvatar } from "./avatar.ts";
 import type { NodeRec, PersonRec, TicketRec, VenueRec } from "./db.ts";
 import type { VenueDay, VenueDetail, VenueVisitor } from "./types.ts";
 
@@ -49,7 +50,7 @@ export function buildVenueDetail(
       visitors.set(id, {
         user: {
           id: person.id,
-          avatar: { kind: person.avatar_kind, value: person.avatar_value },
+          avatar: publicAvatar(person),
         },
         nodeId: personNodes.get(id)?.id ?? null,
         visits: 1,

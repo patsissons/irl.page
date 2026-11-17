@@ -1,4 +1,4 @@
-import { DEFAULT_AVATAR } from "../shared/avatar";
+import { DEFAULT_AVATAR, publicAvatar } from "../shared/avatar";
 import type { Datastore, PersonRec } from "../shared/db";
 import { emailHash } from "../shared/hash";
 import type { PublicUser } from "../shared/types";
@@ -13,7 +13,7 @@ import {
 export function publicUser(person: PersonRec): PublicUser {
   return {
     id: person.id,
-    avatar: { kind: person.avatar_kind, value: person.avatar_value },
+    avatar: publicAvatar(person),
   };
 }
 

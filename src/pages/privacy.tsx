@@ -183,8 +183,10 @@ export function Privacy() {
             of the image, not a link to it.
           </li>
           <li>
-            An avatar that is a provider picture or an image link loads from
-            where that image lives (for example Google or GitHub).
+            Avatar pictures are served from IRL Page: our server fetches a
+            provider picture or image link itself, so browsers showing your
+            avatar never contact those sites, and the picture&apos;s address
+            (which for GitHub names your account) isn&apos;t shown.
           </li>
           <li>
             &ldquo;Open in Google Maps&rdquo; links take you to Google only when

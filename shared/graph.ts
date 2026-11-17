@@ -1,3 +1,4 @@
+import { publicAvatar } from "./avatar.ts";
 import type { EdgeRec, NodeRec, PersonRec, VenueRec } from "./db.ts";
 import type { GraphData, GraphLink, GraphPerson, GraphVenue } from "./types.ts";
 
@@ -29,7 +30,7 @@ export function buildGraph(
       graphPeople.set(node.id, {
         id: node.id,
         userId: person.id,
-        avatar: { kind: person.avatar_kind, value: person.avatar_value },
+        avatar: publicAvatar(person),
         lat: null,
         lng: null,
       });

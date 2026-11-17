@@ -1,3 +1,4 @@
+import type { PersonRec } from "./db.ts";
 import type { Avatar } from "./types.ts";
 
 export const DEFAULT_AVATAR: Avatar = { kind: "blocky", value: "" };
@@ -75,6 +76,36 @@ export function validateAvatar(
     default:
       return null;
   }
+}
+
+/** Avatars that are a picture (served by /api/people/<id>/avatar). */
+export function isPicture(kind: Avatar["kind"]): boolean {
+  return kind === "oauth" || kind === "gravatar" || kind === "url";
+}
+
+/**
+ * Changes whenever the avatar does, so the picture's link can be cached for
+ * as long as it stays the same.
+ */
+export function avatarVersion(avatar: Avatar): string {
+  return fnv1a(`${avatar.kind}:${avatar.value}`).toString(36);
+}
+
+/**
+ * How a person's avatar leaves the Worker. A picture becomes a link to the
+ * Worker's own copy, so its source (a provider URL that can name the
+ * account, an arbitrary host that would see every viewer, or a whole data:
+ * URI) is never sent to browsers.
+ */
+export function publicAvatar(
+  person: Pick<PersonRec, "id" | "avatar_kind" | "avatar_value">,
+): Avatar {
+  const avatar = { kind: person.avatar_kind, value: person.avatar_value };
+  if (!isPicture(avatar.kind)) return avatar;
+  return {
+    kind: avatar.kind,
+    value: `/api/people/${person.id}/avatar?v=${avatarVersion(avatar)}`,
+  };
 }
 
 export interface Blocky {
