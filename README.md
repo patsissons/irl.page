@@ -33,7 +33,9 @@ choose).
   already here, you're asked to use that one.
 - **Explore** (the home page) draws the graph in 3D, or on a globe with a
   heat map, a spike map, or arcs between the latest venues of people who
-  have met.
+  have met. Clicking a person or venue narrows both views to that node
+  and what it is directly linked to (`?focus=<node id>`); signed in, “Just
+  me” does the same for your own node.
 
 ### Data model
 
