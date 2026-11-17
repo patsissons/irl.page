@@ -48,7 +48,8 @@ Commit in small, modular units (one logical change per commit).
 Merging to `main` deploys `pocketbase/pb_migrations/` to the hosted
 PocketHost instance (`deploy-pocketbase` in `.github/workflows/ci.yml`,
 `scripts/pocketbase-deploy.sh`). A migration that has merged has run against
-real data: never edit or delete it afterwards, add a new one.
+real data: never edit or delete it afterwards, add a new one. The same push
+then deploys the Worker to `irl.page` (`deploy-worker`).
 
 ## Product invariants
 

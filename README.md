@@ -137,7 +137,7 @@ A provider without a client id is simply not offered.
   arguments, list venues and their ids
 - `pnpm build`: production build
 - `pnpm db:deploy`: sync `pocketbase/pb_migrations` to the PocketHost instance
-- `pnpm deploy`: build and deploy the Worker
+- `pnpm run deploy`: build and deploy the Worker
 - `pnpm typecheck`: generate Worker types and type-check
 - `pnpm test`: unit tests
 - `pnpm test:e2e`: Playwright tests against a throwaway seeded PocketBase
@@ -178,14 +178,31 @@ the token saved by `pockethost login`.
 
 ### Worker
 
-Not deployed yet. The plan:
+Every push to `main` also runs the `deploy-worker` job, after the database
+deploy: it builds the app and runs `wrangler deploy`, and `wrangler.jsonc`
+routes the Worker to `irl.page`. The job needs two repository secrets,
+`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` (a token that can edit
+Workers and attach the `irl.page` custom domain).
 
-1. Create a superuser on the PocketHost instance for the Worker.
-2. Set every value from `.dev.vars.example` (except `DEV_LOGIN`) as a Worker
-   secret with `wrangler secret put`, with `POCKETBASE_URL` pointing at the
-   instance.
-3. `pnpm deploy`. `wrangler.jsonc` routes the Worker to `irl.page`.
-4. Add Worker deploy and PR-preview jobs to `.github/workflows/ci.yml`.
+The Worker's own configuration is not in CI. Set every value from
+`.dev.vars.example` except `DEV_LOGIN` and `OSM_LOOKUP` once, as a Worker
+secret; they survive deploys:
+
+```sh
+pnpm exec wrangler secret put POCKETBASE_URL
+```
+
+- `POCKETBASE_URL` is `https://irl.pockethost.io`, and
+  `POCKETBASE_SUPERUSER_EMAIL` / `POCKETBASE_SUPERUSER_PASSWORD` are a
+  superuser created on that instance for the Worker.
+- `SESSION_SECRET` and `EMAIL_PEPPER` are fresh random values, not the local
+  ones. Never rotate `EMAIL_PEPPER`: it orphans every account.
+- The OAuth client ids and secrets come from apps whose callbacks are
+  `https://irl.page/api/auth/google/callback` and
+  `https://irl.page/api/auth/github/callback`.
+
+To deploy by hand, run `pnpm run deploy` (plain `pnpm deploy` is a different,
+built-in pnpm command).
 
 Rendering the link-preview image takes tens of milliseconds of CPU, more than
 the Workers Free plan's 10 ms per request, so the Worker needs the Workers
