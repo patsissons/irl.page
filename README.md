@@ -15,7 +15,9 @@ choose).
 ## How it works
 
 - **Sign-in** is OAuth (Google or GitHub), handled entirely in the Worker.
-  The email is used once, to compute `HMAC-SHA256(email, EMAIL_PEPPER)`, and
+  The email is used once, to compute a keyed, deliberately slow hash
+  (`HMAC-SHA256(email, EMAIL_PEPPER)` stretched with 2,000,000 iterations of
+  PBKDF2-HMAC-SHA512, see `shared/hash.ts`), and
   only that hash is stored. The provider's picture stays in the sealed
   session cookie unless the person picks it as their avatar.
 - **A ticket** starts open. Its QR code is `https://irl.page?ticket=<code>`,
