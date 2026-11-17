@@ -17,6 +17,7 @@
     "db": "bash scripts/pocketbase.sh",
     "db:seed": "node scripts/seed.ts",
     "db:reset": "node scripts/reset.ts",
+    "db:deploy": "bash scripts/pocketbase-deploy.sh",
     "venue:merge": "node scripts/venue-merge.ts",
     "build": "vite build",
     "preview": "vite preview",

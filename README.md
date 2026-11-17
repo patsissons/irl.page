@@ -134,6 +134,7 @@ A provider without a client id is simply not offered.
 - `pnpm venue:merge <from> <to>`: fold one venue into another; with no
   arguments, list venues and their ids
 - `pnpm build`: production build
+- `pnpm db:deploy`: sync `pocketbase/pb_migrations` to the PocketHost instance
 - `pnpm deploy`: build and deploy the Worker
 - `pnpm typecheck`: generate Worker types and type-check
 - `pnpm test`: unit tests
@@ -148,15 +149,41 @@ point them at another file.
 
 ## Deploy
 
+### Database (PocketHost)
+
+The hosted database is the PocketHost instance `irl`
+(`https://irl.pockethost.io`), named in `pocketbase/.pockethostconfig`.
+
+Every push to `main`, which includes every merged PR, runs the
+`deploy-pocketbase` job in `.github/workflows/ci.yml` once `validate` has
+passed. It runs `scripts/pocketbase-deploy.sh`, which uses the
+[PocketHost CLI](https://pockethost.io/docs/cli) to upload
+`pocketbase/pb_migrations/` over HTTPS. The instance restarts and applies
+new migrations. Migrations removed from the repo are removed from the
+instance; `pb_data` is never touched.
+
+The job needs one repository secret, `POCKETHOST_TOKEN`: a personal access
+token from [Account → API Tokens](https://pockethost.io/account/tokens) with
+write access to the `irl` instance only. Paste it at the prompt:
+
+```sh
+gh secret set POCKETHOST_TOKEN
+```
+
+To deploy by hand, run `pnpm db:deploy` (add `--dry-run` to list what would
+be deployed). It uses `POCKETHOST_TOKEN` from the environment or `.env`, or
+the token saved by `pockethost login`.
+
+### Worker
+
 Not deployed yet. The plan:
 
-1. Create a PocketHost instance, upload `pocketbase/pb_migrations/`, and
-   create a superuser for the Worker.
+1. Create a superuser on the PocketHost instance for the Worker.
 2. Set every value from `.dev.vars.example` (except `DEV_LOGIN`) as a Worker
    secret with `wrangler secret put`, with `POCKETBASE_URL` pointing at the
    instance.
 3. `pnpm deploy`. `wrangler.jsonc` routes the Worker to `irl.page`.
-4. Add deploy and PR-preview jobs to `.github/workflows/ci.yml`.
+4. Add Worker deploy and PR-preview jobs to `.github/workflows/ci.yml`.
 
 Rendering the link-preview image takes tens of milliseconds of CPU, more than
 the Workers Free plan's 10 ms per request, so the Worker needs the Workers

@@ -67,6 +67,36 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  # No deploy job yet: the app has no hosted database. Add the deploy and
-  # PR-preview jobs once the PocketHost instance and the Worker secrets
-  # exist (see "Deploy" in README.md).
+  # Syncs pocketbase/pb_migrations to the PocketHost instance. PocketHost
+  # restarts the instance to apply new migrations. Runs only for pushes
+  # to main (which includes PR merges), and only once validate has passed.
+  deploy-pocketbase:
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # One deploy at a time, in push order; never cancel a sync halfway.
+    concurrency:
+      group: deploy-pocketbase
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+
+      # Nothing is installed from the lockfile: the script runs a pinned
+      # PocketHost CLI through npx.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Deploy to PocketHost
+        env:
+          POCKETHOST_TOKEN: ${{ secrets.POCKETHOST_TOKEN }}
+        run: |
+          if [ -z "$POCKETHOST_TOKEN" ]; then
+            echo "::error::Missing repository secret POCKETHOST_TOKEN (see Deploy in README.md)"
+            exit 1
+          fi
+          bash scripts/pocketbase-deploy.sh --commit "$GITHUB_SHA"
+
+  # No Worker deploy job yet. Add it, and the PR-preview job, once the Worker
+  # secrets exist (see "Deploy" in README.md).
