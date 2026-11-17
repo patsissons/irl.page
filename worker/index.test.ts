@@ -191,7 +191,13 @@ describe("sessions and avatars", () => {
   });
 });
 
-describe("OAuth sign-in", () => {
+/**
+ * Real sign-ins compute the real email hash, slow on purpose (about half a
+ * second, more on a busy CI runner), several times per test.
+ */
+const SLOW_HASH = { timeout: 30_000 };
+
+describe("OAuth sign-in", SLOW_HASH, () => {
   /** Stands in for Google and GitHub. */
   const provider: typeof fetch = async (input) => {
     const url = String(input);
@@ -287,7 +293,7 @@ describe("OAuth sign-in", () => {
   });
 });
 
-describe("Sign in with Apple", () => {
+describe("Sign in with Apple", SLOW_HASH, () => {
   const APPLE = "https://appleid.apple.com";
   const decode = (part: string) =>
     JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/"))) as Record<

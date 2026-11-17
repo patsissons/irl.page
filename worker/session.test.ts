@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import { safeNext } from "./http";
 import {
   cookieHeader,
+  fromBase64Url,
   openSession,
   parseCookies,
   sealSession,
+  toBase64Url,
 } from "./session";
 
 describe("session cookie", () => {
@@ -28,7 +30,12 @@ describe("session cookie", () => {
   it("rejects a tampered, foreign or missing cookie", async () => {
     const sealed = await sealSession("secret", { uid: "u1", picture: null });
     expect(await openSession("other", sealed)).toBeNull();
-    expect(await openSession("secret", `${sealed.slice(0, -2)}AA`)).toBeNull();
+    // Flip one bit of the ciphertext. (Rewriting the last characters could
+    // leave the decoded bytes unchanged: the final base64 character carries
+    // padding bits.)
+    const tampered = fromBase64Url(sealed)!;
+    tampered[tampered.length >> 1] ^= 1;
+    expect(await openSession("secret", toBase64Url(tampered))).toBeNull();
     expect(await openSession("secret", undefined)).toBeNull();
     expect(await openSession("secret", "garbage")).toBeNull();
   });
