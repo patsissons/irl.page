@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import ForceGraph3D, { type ForceGraphMethods } from "react-force-graph-3d";
 import * as THREE from "three";
-import { avatarSvg } from "@shared/avatar";
+import { avatarBackground, avatarSvg } from "@shared/avatar";
 import type { Avatar, GraphData } from "@shared/types";
 
 interface Node {
@@ -44,17 +44,20 @@ function node(next: Node): Node {
 
 const loader = new THREE.TextureLoader();
 loader.setCrossOrigin("anonymous");
+const images = new THREE.ImageLoader();
+images.setCrossOrigin("anonymous");
 /** Textures by avatar, so re-drawing a node doesn't rebuild its picture. */
 const textures = new Map<string, THREE.Texture>();
 function drawnTexture(avatar: Avatar, id: string): THREE.Texture {
   const emoji = avatar.kind === "emoji";
-  const key = emoji ? `emoji:${avatar.value}` : `blocky:${id}`;
+  const background = avatarBackground(avatar);
+  const key = `${emoji ? `emoji:${avatar.value}` : `blocky:${id}`}:${background ?? ""}`;
   let texture = textures.get(key);
   if (!texture) {
     texture = loader.load(
       `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
         avatarSvg(
-          { kind: emoji ? "emoji" : "blocky", value: avatar.value },
+          { kind: emoji ? "emoji" : "blocky", value: avatar.value, background },
           id,
         ),
       )}`,
@@ -69,6 +72,7 @@ function drawnTexture(avatar: Avatar, id: string): THREE.Texture {
 function personSprite(person: Node, focused: boolean): THREE.Object3D {
   const avatar = person.avatar ?? { kind: "blocky" as const, value: "" };
   const id = person.userId ?? person.id;
+  const background = avatarBackground(avatar);
   const material = new THREE.SpriteMaterial({ depthWrite: false });
   if (
     avatar.kind === "url" ||
@@ -76,10 +80,37 @@ function personSprite(person: Node, focused: boolean): THREE.Object3D {
     avatar.kind === "gravatar"
   ) {
     // A picture needs CORS to become a texture; fall back to the blocky.
-    material.map = loader.load(avatar.value, undefined, undefined, () => {
-      material.map = drawnTexture({ kind: "blocky", value: "" }, id);
+    const fallback = () => {
+      material.map = drawnTexture(
+        { kind: "blocky", value: "", background },
+        id,
+      );
       material.needsUpdate = true;
-    });
+    };
+    if (background) {
+      // Drawn over its background, which shows until the picture loads and
+      // wherever it is transparent.
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 128;
+      const context = canvas.getContext("2d");
+      if (context) {
+        context.fillStyle = background;
+        context.fillRect(0, 0, 128, 128);
+      }
+      const texture = new THREE.CanvasTexture(canvas);
+      images.load(
+        avatar.value,
+        (image) => {
+          context?.drawImage(image, 0, 0, 128, 128);
+          texture.needsUpdate = true;
+        },
+        undefined,
+        fallback,
+      );
+      material.map = texture;
+    } else {
+      material.map = loader.load(avatar.value, undefined, undefined, fallback);
+    }
     material.map.colorSpace = THREE.SRGBColorSpace;
   } else {
     material.map = drawnTexture(avatar, id);

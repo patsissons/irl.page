@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { blocky } from "@shared/avatar";
+import { avatarBackground, blocky } from "@shared/avatar";
 import type { PublicUser } from "@shared/types";
 import { cn } from "@/lib/utils";
 
-function Blocky({ id }: { id: string }) {
-  const { cells, color, background } = blocky(id);
+function Blocky({ id, background }: { id: string; background?: string }) {
+  const { cells, color, background: fill } = blocky(id, background);
   return (
     <svg viewBox="0 0 64 64" className="size-full" aria-hidden="true">
-      <rect width="64" height="64" fill={background} />
+      <rect width="64" height="64" fill={fill} />
       {cells.map((on, index) =>
         on ? (
           <rect
@@ -26,8 +26,9 @@ function Blocky({ id }: { id: string }) {
 
 /**
  * A person, as much as anyone sees of them: a picture, an emoji, or the
- * blocky pattern derived from their id. A picture that fails to load falls
- * back to the blocky.
+ * blocky pattern derived from their id, on the background they picked
+ * (white, or the blocky's own tint, by default). A picture that fails to
+ * load falls back to the blocky.
  */
 export function Avatar({
   user,
@@ -40,6 +41,7 @@ export function Avatar({
 }) {
   const [broken, setBroken] = useState<string | null>(null);
   const { kind, value } = user.avatar;
+  const background = avatarBackground(user.avatar);
   const picture =
     (kind === "url" || kind === "oauth" || kind === "gravatar") &&
     broken !== value;
@@ -50,10 +52,16 @@ export function Avatar({
       aria-label={`Avatar ${user.id.slice(0, 6)}`}
       data-avatar-kind={kind}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-black/10 select-none",
+        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-black/10 select-none",
         className,
       )}
-      style={{ width: size, height: size, fontSize: size * 0.6, lineHeight: 1 }}
+      style={{
+        width: size,
+        height: size,
+        fontSize: size * 0.6,
+        lineHeight: 1,
+        backgroundColor: background ?? "#ffffff",
+      }}
     >
       {picture ? (
         <img
@@ -66,7 +74,7 @@ export function Avatar({
       ) : kind === "emoji" ? (
         <span aria-hidden="true">{value}</span>
       ) : (
-        <Blocky id={user.id} />
+        <Blocky id={user.id} background={background} />
       )}
     </span>
   );
