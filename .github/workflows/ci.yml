@@ -67,9 +67,9 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  # Syncs pocketbase/pb_migrations to the PocketHost instance. PocketHost
-  # restarts the instance to apply new migrations. Runs only for pushes
-  # to main (which includes PR merges), and only once validate has passed.
+  # Syncs pocketbase/pb_migrations to the PocketHost instance and restarts
+  # it to apply new migrations. Runs only for pushes to main (which
+  # includes PR merges), and only once validate has passed.
   deploy-pocketbase:
     needs: validate
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -82,24 +82,32 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # Nothing is installed from the lockfile: the script runs a pinned
-      # PocketHost CLI through npx. setup-node would otherwise see the
-      # packageManager field and try to cache with pnpm, which this job
-      # never installs.
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          package-manager-cache: false
+      # The v5 CLI is pre-release, so it's pinned to a release and checked
+      # against that release's linux_amd64.zip line in checksums.txt. Bump
+      # both together, deliberately.
+      - name: Install the PocketHost CLI
+        env:
+          VERSION: 5.0.0-alpha.8
+          SHA256: 8ce7ab20d00c396956a477431a1b93f111ec69760619b685aba7740530e30de4
+        run: |
+          dir="$RUNNER_TEMP/pockethost"
+          zip="pockethost_${VERSION}_linux_amd64.zip"
+          mkdir -p "$dir"
+          curl -fsSL -o "$dir/$zip" \
+            "https://github.com/pockethost/pockethost/releases/download/v$VERSION/$zip"
+          echo "$SHA256  $dir/$zip" | sha256sum -c -
+          unzip -q "$dir/$zip" pockethost -d "$dir"
+          echo "$dir" >> "$GITHUB_PATH"
 
       - name: Deploy to PocketHost
         env:
-          POCKETHOST_TOKEN: ${{ secrets.POCKETHOST_TOKEN }}
+          P1_TOKEN: ${{ secrets.P1_TOKEN }}
         run: |
-          if [ -z "$POCKETHOST_TOKEN" ]; then
-            echo "::error::Missing repository secret POCKETHOST_TOKEN (see Deploy in README.md)"
+          if [ -z "$P1_TOKEN" ]; then
+            echo "::error::Missing repository secret P1_TOKEN (see Deploy in README.md)"
             exit 1
           fi
-          bash scripts/pocketbase-deploy.sh --commit "$GITHUB_SHA"
+          bash scripts/pocketbase-deploy.sh
 
   # Builds and deploys the Worker (API + static assets) to Cloudflare, routed
   # to irl.page. Runs after the database deploy so new code never meets an
