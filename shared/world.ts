@@ -178,6 +178,7 @@ export async function buildWorld(
       email_hash: await options.emailHash(index),
       avatar_kind: emoji ? "emoji" : "blocky",
       avatar_value: emoji ?? "",
+      avatar_background: "",
       onboarded: true,
       created: new Date(now - age * DAY).toISOString(),
     });

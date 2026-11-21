@@ -7,6 +7,8 @@ import { memoryDatastore } from "../shared/memory-db";
 import { DRAFT, person } from "../shared/testing";
 import type {
   AvatarKind,
+  GraphData,
+  Me,
   MeResponse,
   NearbyResponse,
   TicketView,
@@ -184,8 +186,36 @@ describe("sessions and avatars", () => {
     expect((await db.list("people"))[0]).toMatchObject({
       avatar_kind: "url",
       avatar_value: "https://x.test/a.png",
+      avatar_background: "",
       onboarded: true,
     });
+
+    // A background is saved normalized, and a bad one is refused.
+    const saved = await browser.send("PUT", "/api/me/avatar", {
+      kind: "emoji",
+      value: "🦊",
+      background: "#0AF",
+    });
+    expect(((await saved.json()) as Me).avatar).toEqual({
+      kind: "emoji",
+      value: "🦊",
+      background: "#00aaff",
+    });
+    expect((await db.list("people"))[0].avatar_background).toBe("#00aaff");
+    expect(
+      (
+        await browser.send("PUT", "/api/me/avatar", {
+          kind: "emoji",
+          value: "🦊",
+          background: "tomato",
+        })
+      ).status,
+    ).toBe(400);
+    expect((await db.list("people"))[0].avatar_background).toBe("#00aaff");
+
+    // Saving without one goes back to the default.
+    await browser.send("PUT", "/api/me/avatar", { kind: "emoji", value: "🦊" });
+    expect((await db.list("people"))[0].avatar_background).toBe("");
   });
 
   it("refuses state-changing requests from another origin", async () => {
@@ -900,6 +930,26 @@ describe("venues and graph", () => {
     }
   });
 
+  it("shows a chosen background in the public graph", async () => {
+    const { db, host } = await seeded();
+    const saved = await host.send("PUT", "/api/me/avatar", {
+      kind: "emoji",
+      value: "🦊",
+      background: "#123456",
+    });
+    const { id } = (await saved.json()) as Me;
+    const graph = (await (await host.get("/api/graph")).json()) as GraphData;
+    const people = new Map(graph.people.map((p) => [p.userId, p.avatar]));
+    expect(people.get(id)).toEqual({
+      kind: "emoji",
+      value: "🦊",
+      background: "#123456",
+    });
+    const other = [...people].find(([userId]) => userId !== id)![1];
+    expect(other).not.toHaveProperty("background");
+    expect((await db.get("people", id))?.avatar_background).toBe("#123456");
+  });
+
   it("serves the public graph without any email hash", async () => {
     const { db } = await seeded();
     const response = await client({ db }).get("/api/graph");
@@ -941,6 +991,7 @@ describe("avatar pictures", () => {
       id: someone.id,
       avatar_kind: kind,
       avatar_value: value,
+      avatar_background: "",
     });
     return { id: someone.id, link: graphAvatar.value };
   }

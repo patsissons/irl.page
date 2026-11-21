@@ -1,10 +1,12 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import {
+  AVATAR_SWATCHES,
   avatarSvg,
   blocky,
   isEmoji,
   MAX_DATA_URI,
+  normalizeColor,
   publicAvatar,
   validateAvatar,
 } from "./avatar.ts";
@@ -98,13 +100,83 @@ describe("validateAvatar", () => {
     expect(validateAvatar({ kind: "gif" }, null)).toBeNull();
     expect(validateAvatar(null, null)).toBeNull();
   });
+
+  it("keeps a valid background, normalized, on every kind", () => {
+    expect(
+      validateAvatar({ kind: "emoji", value: "🦊", background: "#0AF" }, null),
+    ).toEqual({ kind: "emoji", value: "🦊", background: "#00aaff" });
+    expect(
+      validateAvatar({ kind: "blocky", value: "", background: "123456" }, null),
+    ).toEqual({ kind: "blocky", value: "", background: "#123456" });
+    expect(
+      validateAvatar(
+        { kind: "url", value: "https://x.test/a.png", background: "#FFEEDD" },
+        null,
+      ),
+    ).toEqual({
+      kind: "url",
+      value: "https://x.test/a.png",
+      background: "#ffeedd",
+    });
+  });
+
+  it("treats a missing or empty background as the default", () => {
+    for (const background of [undefined, null, ""]) {
+      expect(
+        validateAvatar({ kind: "emoji", value: "🦊", background }, null),
+      ).toEqual({ kind: "emoji", value: "🦊" });
+    }
+  });
+
+  it("rejects a background that isn't a hex colour", () => {
+    for (const background of [
+      "red",
+      "#12345g",
+      "#1234",
+      "url(x)",
+      "#fff;x",
+      42,
+      {},
+    ]) {
+      expect(
+        validateAvatar({ kind: "emoji", value: "🦊", background }, null),
+      ).toBeNull();
+    }
+    // A bad avatar stays bad with a good background.
+    expect(
+      validateAvatar({ kind: "emoji", value: "no", background: "#fff" }, null),
+    ).toBeNull();
+  });
+});
+
+describe("normalizeColor", () => {
+  it("expands and lowercases hex colours, with or without #", () => {
+    expect(normalizeColor("#ABC")).toBe("#aabbcc");
+    expect(normalizeColor("abc")).toBe("#aabbcc");
+    expect(normalizeColor(" #A1B2C3 ")).toBe("#a1b2c3");
+    expect(normalizeColor("a1b2c3")).toBe("#a1b2c3");
+  });
+
+  it("rejects everything else", () => {
+    for (const value of ["", "#", "#ab", "#abcd", "#abcdefa", "blue", "#xyz"]) {
+      expect(normalizeColor(value)).toBeNull();
+    }
+  });
+
+  it("offers only valid, distinct swatches", () => {
+    for (const swatch of AVATAR_SWATCHES) {
+      expect(normalizeColor(swatch)).toBe(swatch);
+    }
+    expect(new Set(AVATAR_SWATCHES).size).toBe(AVATAR_SWATCHES.length);
+  });
 });
 
 describe("publicAvatar", () => {
   const as = (
     avatar_kind: "emoji" | "blocky" | "url" | "oauth" | "gravatar",
     avatar_value: string,
-  ) => publicAvatar({ id: "p1", avatar_kind, avatar_value });
+    avatar_background = "",
+  ) => publicAvatar({ id: "p1", avatar_kind, avatar_value, avatar_background });
 
   it("sends emoji and blocky as they are", () => {
     expect(as("emoji", "🦊")).toEqual({ kind: "emoji", value: "🦊" });
@@ -123,6 +195,19 @@ describe("publicAvatar", () => {
     expect(as("url", "https://a.test/1.png").value).toBe(
       as("url", "https://a.test/1.png").value,
     );
+  });
+
+  it("sends the background only when there is one", () => {
+    expect(as("emoji", "🦊", "#112233")).toEqual({
+      kind: "emoji",
+      value: "🦊",
+      background: "#112233",
+    });
+    expect(as("emoji", "🦊")).not.toHaveProperty("background");
+    const picture = as("url", "https://a.test/1.png", "#112233");
+    expect(picture.background).toBe("#112233");
+    // The picture's link doesn't change with its background.
+    expect(picture.value).toBe(as("url", "https://a.test/1.png").value);
   });
 });
 
@@ -143,5 +228,25 @@ describe("blocky", () => {
       "<rect",
     );
     expect(avatarSvg({ kind: "emoji", value: "🦊" }, "user-a")).toContain("🦊");
+  });
+
+  it("draws a chosen background, and only a valid one", () => {
+    expect(blocky("user-a", "#123456").background).toBe("#123456");
+    expect(blocky("user-a", "#123456").cells).toEqual(blocky("user-a").cells);
+    expect(
+      avatarSvg(
+        { kind: "emoji", value: "🦊", background: "#123456" },
+        "user-a",
+      ),
+    ).toContain('fill="#123456"');
+    expect(
+      avatarSvg({ kind: "blocky", value: "", background: "#123456" }, "user-a"),
+    ).toContain('<rect width="64" height="64" fill="#123456"/>');
+    expect(
+      avatarSvg(
+        { kind: "emoji", value: "🦊", background: '"/><script>' },
+        "user-a",
+      ),
+    ).not.toContain("<script>");
   });
 });

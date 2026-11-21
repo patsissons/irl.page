@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 
 // Every emoji and its names: loaded only when the emoji choice is open.
 const EmojiPicker = lazy(() => import("@/components/emoji-picker"));
+// The colour square and its styles, kept out of the first paint.
+const ColorPicker = lazy(() => import("@/components/color-picker"));
 
 function safeNext(next: string | null): string {
   return next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
@@ -69,6 +71,10 @@ export function Profile({ welcome = false }: { welcome?: boolean }) {
   const [kind, setKind] = useState<AvatarKind | null>(null);
   const [emoji, setEmoji] = useState<string | null>(null);
   const [url, setUrl] = useState<string | null>(null);
+  /** null until a colour is picked; a color of undefined is the default. */
+  const [picked, setPicked] = useState<{ color: string | undefined } | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   /** undefined while asking, null when there is none. */
@@ -105,7 +111,8 @@ export function Profile({ welcome = false }: { welcome?: boolean }) {
   const selected = kind ?? current.kind;
   const emojiValue = emoji ?? (current.kind === "emoji" ? current.value : "🦊");
   const urlValue = url ?? user.avatarLink ?? "";
-  const draft: AvatarValue =
+  const background = picked ? picked.color : current.background;
+  const chosen: AvatarValue =
     selected === "emoji"
       ? { kind: "emoji", value: emojiValue.trim() }
       : selected === "url"
@@ -115,6 +122,8 @@ export function Profile({ welcome = false }: { welcome?: boolean }) {
           : selected === "gravatar"
             ? { kind: "gravatar", value: gravatar ?? current.value }
             : { kind: "blocky", value: "" };
+  // Sent without a background, the avatar goes back to the default one.
+  const draft: AvatarValue = background ? { ...chosen, background } : chosen;
   const valid =
     selected === "emoji"
       ? isEmoji(draft.value)
@@ -152,7 +161,10 @@ export function Profile({ welcome = false }: { welcome?: boolean }) {
     <div className="grid gap-5">
       <header className="flex items-center gap-4">
         <Avatar
-          user={{ id: user.id, avatar: valid ? draft : current }}
+          user={{
+            id: user.id,
+            avatar: { ...(valid ? chosen : current), background },
+          }}
           size={72}
         />
         <div>
@@ -221,6 +233,27 @@ export function Profile({ welcome = false }: { welcome?: boolean }) {
           />
         </Choice>
       </fieldset>
+
+      <section
+        aria-labelledby="avatar-background"
+        className="grid gap-3 rounded-2xl border bg-card p-4"
+      >
+        <div>
+          <h2 id="avatar-background" className="font-medium">
+            Background
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            The colour behind your avatar. It shows through transparent pictures
+            and replaces the blocky&apos;s tint.
+          </p>
+        </div>
+        <Suspense fallback={<Skeleton className="h-48 w-full" />}>
+          <ColorPicker
+            value={background}
+            onChange={(color) => setPicked({ color })}
+          />
+        </Suspense>
+      </section>
 
       {error && (
         <p role="alert" className="text-sm text-destructive">

@@ -219,6 +219,25 @@ test("the avatar can be changed from the profile", async ({ page }) => {
     page.getByRole("button", { name: "thumbs up", exact: true }),
   ).toHaveText("👍🏾");
 
+  // A background colour, from the quick picks and then typed.
+  const hex = page.getByRole("textbox", { name: "Background colour hex" });
+  const avatar = page
+    .getByRole("link", { name: "Your profile" })
+    .getByRole("img");
+  await expect(hex).toHaveValue("");
+  await expect(avatar).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await page.getByRole("button", { name: "#3b82f6" }).click();
+  await expect(hex).toHaveValue("#3b82f6");
+  await hex.fill("#0af");
+  await page.getByRole("button", { name: "Save avatar" }).click();
+  await expect(avatar).toHaveCSS("background-color", "rgb(0, 170, 255)");
+  await page.reload();
+  await expect(hex).toHaveValue("#00aaff");
+  await expect(avatar).toHaveCSS("background-color", "rgb(0, 170, 255)");
+  await page.getByRole("button", { name: "Default" }).click();
+  await page.getByRole("button", { name: "Save avatar" }).click();
+  await expect(avatar).toHaveCSS("background-color", "rgb(255, 255, 255)");
+
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByRole("link", { name: "Your profile" })).toHaveCount(0);
 });

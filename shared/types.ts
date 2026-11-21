@@ -9,6 +9,11 @@ export type AvatarKind = "oauth" | "gravatar" | "url" | "emoji" | "blocky";
 export interface Avatar {
   kind: AvatarKind;
   value: string;
+  /**
+   * The colour behind the avatar, lowercase #rrggbb (shared/avatar.ts,
+   * normalizeColor). Left out when unset: white, or the blocky's own tint.
+   */
+  background?: string;
 }
 
 export interface PublicUser {

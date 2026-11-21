@@ -45,6 +45,7 @@ export async function personForEmail(
       email_hash: hash,
       avatar_kind: DEFAULT_AVATAR.kind,
       avatar_value: DEFAULT_AVATAR.value,
+      avatar_background: "",
       onboarded: false,
       created: now,
     })

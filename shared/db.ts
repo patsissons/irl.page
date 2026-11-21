@@ -11,6 +11,8 @@ export interface PersonRec {
   email_hash: string;
   avatar_kind: AvatarKind;
   avatar_value: string;
+  /** Lowercase #rrggbb, or "" for the default. */
+  avatar_background: string;
   onboarded: boolean;
   created: string;
 }

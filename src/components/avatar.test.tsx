@@ -40,6 +40,38 @@ describe("Avatar", () => {
     expect(container.querySelector("svg")).not.toBeNull();
   });
 
+  it("sits on white, or the background picked", () => {
+    render(
+      <Avatar
+        user={{ id: "user-1", avatar: { kind: "emoji", value: "🦊" } }}
+      />,
+    );
+    expect(screen.getByRole("img")).toHaveStyle({ backgroundColor: "#ffffff" });
+    render(
+      <Avatar
+        user={{
+          id: "user-2",
+          avatar: { kind: "emoji", value: "🦊", background: "#123456" },
+        }}
+      />,
+    );
+    expect(screen.getAllByRole("img")[1]).toHaveStyle({
+      backgroundColor: "#123456",
+    });
+  });
+
+  it("puts the blocky pattern on the background picked", () => {
+    const { container } = render(
+      <Avatar
+        user={{
+          id: "user-1",
+          avatar: { kind: "blocky", value: "", background: "#123456" },
+        }}
+      />,
+    );
+    expect(container.querySelector("rect")).toHaveAttribute("fill", "#123456");
+  });
+
   it("stacks avatars and counts the overflow", () => {
     const users = Array.from({ length: 5 }, (_, index) => ({
       id: `user-${index}`,

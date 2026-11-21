@@ -168,6 +168,24 @@ body {
   mask-repeat: no-repeat;
 }
 
+/* react-colorful's square and hue strip (src/components/color-picker.tsx). */
+.color-square.react-colorful {
+  width: 10rem;
+  height: 10rem;
+}
+.color-square .react-colorful__saturation {
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-bottom-width: 0.75rem;
+}
+.color-square .react-colorful__last-control {
+  height: 1.25rem;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.color-square .react-colorful__pointer {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

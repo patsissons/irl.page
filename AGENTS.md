@@ -68,7 +68,10 @@ then deploys the Worker to `irl.page` (`deploy-worker`).
   to `MAX_DATA_URI` (`shared/avatar.ts`, PNG/JPEG/GIF/WebP only, never
   SVG). Every avatar is public in `/api/graph`, so the cap bounds that
   response; it is also `avatar_value`'s max in PocketBase, so raising it
-  needs a new migration.
+  needs a new migration. An avatar's optional background colour is public
+  with it: lowercase `#rrggbb` from `normalizeColor`, or unset (white, or
+  the blocky's own tint), and `avatar_background`'s PocketBase pattern
+  matches that form.
 - **The email hash is frozen.** It is the only way a returning person is
   matched to their account, and there is no email on file to recompute it
   from. Changing anything that feeds it (the HMAC, the PBKDF2 hash, salt,

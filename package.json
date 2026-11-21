@@ -48,6 +48,7 @@
     "qr-scanner": "^1.4.2",
     "radix-ui": "^1.7.0",
     "react": "^19.3.0",
+    "react-colorful": "^5.8.1",
     "react-dom": "^19.3.0",
     "react-force-graph-3d": "^1.29.2",
     "react-globe.gl": "^2.38.0",

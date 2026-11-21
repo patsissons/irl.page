@@ -9,6 +9,7 @@ export function person(db: Datastore, index: number): Promise<PersonRec> {
     email_hash: `hash-${index}`,
     avatar_kind: "blocky",
     avatar_value: "",
+    avatar_background: "",
     onboarded: true,
     created: T0,
   });

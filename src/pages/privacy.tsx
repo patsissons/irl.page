@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
  * It describes what the code does: keep it in step with AGENTS.md's
  * product invariants whenever what is stored, shown or sent changes.
  */
-export const PRIVACY_UPDATED = "November 17, 2026";
+export const PRIVACY_UPDATED = "November 21, 2026";
 
 const ISSUES = "https://github.com/patsissons/irl.page/issues";
 
@@ -87,7 +87,8 @@ export function Privacy() {
             <strong>Your account:</strong> the email fingerprint, the avatar you
             pick (a generated pattern, an emoji, an image link, a small image
             you paste in, a copy of your Gravatar picture, or your provider
-            picture) and when you joined.
+            picture), its background colour if you pick one, and when you
+            joined.
           </li>
           <li>
             <strong>Tickets:</strong> who created and joined each one, the
