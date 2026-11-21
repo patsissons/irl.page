@@ -51,6 +51,7 @@ export async function handleAvatar(ctx: Ctx): Promise<Response> {
   const person = await ctx.db.update("people", signed.person.id, {
     avatar_kind: avatar.kind,
     avatar_value: avatar.value,
+    avatar_background: avatar.background ?? "",
     onboarded: true,
   });
   return json(me(person, signed.session));
