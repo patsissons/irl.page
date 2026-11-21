@@ -186,6 +186,16 @@ test("the avatar can be changed from the profile", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Your avatar" }),
   ).toBeVisible();
+  const header = page
+    .getByRole("link", { name: "Your profile" })
+    .getByRole("img");
+  // Each choice shows in the header as soon as it is picked.
+  await page.getByRole("radio", { name: /Blocky/ }).check();
+  await expect(header).toHaveAttribute("data-avatar-kind", "blocky");
+  await page.getByRole("radio", { name: /Image link/ }).check();
+  await expect(header).toHaveAttribute("data-avatar-kind", "url");
+  await page.getByRole("radio", { name: /Emoji/ }).check();
+  await expect(header).toHaveAttribute("data-avatar-kind", "emoji");
   await page.getByRole("radio", { name: /Blocky/ }).check();
   await page.getByRole("button", { name: "Save avatar" }).click();
   await expect(

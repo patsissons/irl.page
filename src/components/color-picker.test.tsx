@@ -91,6 +91,20 @@ describe("ColorPicker", () => {
     expect(spy).toHaveBeenLastCalledWith(undefined);
   });
 
+  it("shows the default colour in the square while none is picked", () => {
+    render(
+      <ColorPicker value={undefined} fallback="#3b82f6" onChange={() => {}} />,
+    );
+    expect(hex()).toHaveValue("");
+    expect(
+      Number(
+        screen
+          .getByRole("slider", { name: "Hue" })
+          .getAttribute("aria-valuenow"),
+      ),
+    ).toBeGreaterThan(200);
+  });
+
   it("moves the square with the colour", () => {
     render(<Held initial="#ff0000" spy={() => {}} />);
     expect(screen.getByRole("slider", { name: "Hue" })).toHaveAttribute(

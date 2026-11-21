@@ -4,6 +4,8 @@ import {
   AVATAR_SWATCHES,
   avatarSvg,
   blocky,
+  DEFAULT_BACKGROUND,
+  defaultBackground,
   isEmoji,
   MAX_DATA_URI,
   normalizeColor,
@@ -228,6 +230,24 @@ describe("blocky", () => {
       "<rect",
     );
     expect(avatarSvg({ kind: "emoji", value: "🦊" }, "user-a")).toContain("🦊");
+  });
+
+  it("defaults to the blocky's own tint, and white for everything else", () => {
+    expect(blocky("user-a").background).toMatch(/^#[0-9a-f]{6}$/);
+    expect(blocky("user-a").color).toMatch(/^#[0-9a-f]{6}$/);
+    expect(defaultBackground("blocky", "user-a")).toBe(
+      blocky("user-a").background,
+    );
+    expect(defaultBackground("blocky", "user-a")).not.toBe(DEFAULT_BACKGROUND);
+    for (const kind of ["emoji", "url", "oauth", "gravatar"] as const) {
+      expect(defaultBackground(kind, "user-a")).toBe("#ffffff");
+    }
+    expect(avatarSvg({ kind: "emoji", value: "🦊" }, "user-a")).toContain(
+      'fill="#ffffff"',
+    );
+    expect(avatarSvg({ kind: "blocky", value: "" }, "user-a")).toContain(
+      `<rect width="64" height="64" fill="${blocky("user-a").background}"/>`,
+    );
   });
 
   it("draws a chosen background, and only a valid one", () => {

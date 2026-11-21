@@ -4,21 +4,20 @@ import { AVATAR_SWATCHES, normalizeColor } from "@shared/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-/** What the square shows while no colour is picked (the avatar's default). */
-const DEFAULT_SHOWN = "#ffffff";
-
 /**
  * A colour, three ways: a saturation square with a hue strip for any
  * colour, a grid of quick picks beside it, and a hex field below. Each one
- * updates the others. `undefined` is the default (no colour picked).
- * Loaded lazily, like the emoji picker.
+ * updates the others. `undefined` is the default (no colour picked), which
+ * the square shows as `fallback`. Loaded lazily, like the emoji picker.
  */
 export default function ColorPicker({
   value,
+  fallback = "#ffffff",
   onChange,
   label = "Background colour",
 }: {
   value: string | undefined;
+  fallback?: string;
   onChange: (color: string | undefined) => void;
   label?: string;
 }) {
@@ -48,7 +47,7 @@ export default function ColorPicker({
       <div className="flex flex-wrap gap-4">
         <HexColorPicker
           className="color-square"
-          color={value ?? DEFAULT_SHOWN}
+          color={value ?? fallback}
           onChange={pick}
         />
         <div

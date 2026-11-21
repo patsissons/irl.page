@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { blocky } from "@shared/avatar";
 import { Avatar, AvatarStack } from "./avatar";
 
 describe("Avatar", () => {
@@ -58,6 +59,35 @@ describe("Avatar", () => {
     expect(screen.getAllByRole("img")[1]).toHaveStyle({
       backgroundColor: "#123456",
     });
+  });
+
+  it("defaults the blocky to its own tint, and pictures to white", () => {
+    render(
+      <Avatar user={{ id: "user-1", avatar: { kind: "blocky", value: "" } }} />,
+    );
+    expect(screen.getByRole("img")).toHaveStyle({
+      backgroundColor: blocky("user-1").background,
+    });
+    render(
+      <Avatar
+        user={{
+          id: "user-2",
+          avatar: { kind: "url", value: "https://x.test/a.png" },
+        }}
+      />,
+    );
+    expect(screen.getAllByRole("img")[1]).toHaveStyle({
+      backgroundColor: "#ffffff",
+    });
+  });
+
+  it("shows a picture that isn't there yet as the blocky", () => {
+    const { container } = render(
+      <Avatar user={{ id: "user-1", avatar: { kind: "url", value: "" } }} />,
+    );
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector("svg")).not.toBeNull();
+    expect(screen.getByRole("img")).toHaveAttribute("data-avatar-kind", "url");
   });
 
   it("puts the blocky pattern on the background picked", () => {

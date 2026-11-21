@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { avatarBackground, blocky } from "@shared/avatar";
+import { avatarBackground, blocky, defaultBackground } from "@shared/avatar";
 import type { PublicUser } from "@shared/types";
 import { cn } from "@/lib/utils";
 
@@ -27,8 +27,9 @@ function Blocky({ id, background }: { id: string; background?: string }) {
 /**
  * A person, as much as anyone sees of them: a picture, an emoji, or the
  * blocky pattern derived from their id, on the background they picked
- * (white, or the blocky's own tint, by default). A picture that fails to
- * load falls back to the blocky.
+ * (white, or the blocky's own tint, by default). A picture that is missing
+ * or fails to load falls back to the blocky, so every avatar being edited
+ * can be shown.
  */
 export function Avatar({
   user,
@@ -44,7 +45,9 @@ export function Avatar({
   const background = avatarBackground(user.avatar);
   const picture =
     (kind === "url" || kind === "oauth" || kind === "gravatar") &&
+    value !== "" &&
     broken !== value;
+  const drawn = picture ? kind : kind === "emoji" ? "emoji" : "blocky";
 
   return (
     <span
@@ -60,7 +63,7 @@ export function Avatar({
         height: size,
         fontSize: size * 0.6,
         lineHeight: 1,
-        backgroundColor: background ?? "#ffffff",
+        backgroundColor: background ?? defaultBackground(drawn, user.id),
       }}
     >
       {picture ? (
