@@ -1,7 +1,12 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { LogOut } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router";
-import { isAvatarUrl, isEmoji, MAX_DATA_URI } from "@shared/avatar";
+import {
+  defaultBackground,
+  isAvatarUrl,
+  isEmoji,
+  MAX_DATA_URI,
+} from "@shared/avatar";
 import type { Avatar as AvatarValue, AvatarKind } from "@shared/types";
 import { Avatar } from "@/components/avatar";
 import { SignIn } from "@/components/sign-in";
@@ -132,9 +137,19 @@ export function Profile({ welcome = false }: { welcome?: boolean }) {
       : selected === "url"
         ? { kind: "url", value: urlValue.trim() }
         : selected === "oauth"
-          ? { kind: "oauth", value: user.oauthPicture ?? current.value }
+          ? {
+              kind: "oauth",
+              value:
+                user.oauthPicture ??
+                (current.kind === "oauth" ? current.value : ""),
+            }
           : selected === "gravatar"
-            ? { kind: "gravatar", value: gravatar ?? current.value }
+            ? {
+                kind: "gravatar",
+                value:
+                  gravatar ??
+                  (current.kind === "gravatar" ? current.value : ""),
+              }
             : { kind: "blocky", value: "" };
   // Sent without a background, the avatar goes back to the default one.
   const draft: AvatarValue = background ? { ...chosen, background } : chosen;
@@ -148,8 +163,9 @@ export function Profile({ welcome = false }: { welcome?: boolean }) {
           : selected === "gravatar"
             ? Boolean(gravatar)
             : true;
-  // What the avatar will look like: the draft once it is valid.
-  const shown: AvatarValue = { ...(valid ? chosen : current), background };
+  // Every choice is shown as soon as it is picked, even before it can be
+  // saved: a picture that isn't there yet shows as the blocky.
+  const shown: AvatarValue = { ...chosen, background };
 
   async function save() {
     setSaving(true);
@@ -255,12 +271,14 @@ export function Profile({ welcome = false }: { welcome?: boolean }) {
           </h2>
           <p className="text-sm text-muted-foreground">
             The colour behind your avatar. It shows through transparent pictures
-            and replaces the blocky&apos;s tint.
+            and replaces the blocky&apos;s tint. By default it is white, or the
+            blocky&apos;s own tint.
           </p>
         </div>
         <Suspense fallback={<Skeleton className="h-48 w-full" />}>
           <ColorPicker
             value={background}
+            fallback={defaultBackground(selected, user.id)}
             onChange={(color) => setPicked({ color })}
           />
         </Suspense>

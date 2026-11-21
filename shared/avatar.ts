@@ -190,6 +190,21 @@ function fnv1a(text: string): number {
   return hash >>> 0;
 }
 
+/** An HSL colour (degrees, percent, percent) as lowercase #rrggbb. */
+function hslHex(hue: number, saturation: number, lightness: number): string {
+  const s = saturation / 100;
+  const l = lightness / 100;
+  const a = s * Math.min(l, 1 - l);
+  const channel = (n: number) => {
+    const k = (n + hue / 30) % 12;
+    const value = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(value * 255)
+      .toString(16)
+      .padStart(2, "0");
+  };
+  return `#${channel(0)}${channel(8)}${channel(4)}`;
+}
+
 /**
  * The default avatar: a deterministic blocky pattern from the user id, on a
  * tint of its colour unless the person picked a background.
@@ -206,9 +221,20 @@ export function blocky(id: string, background?: string): Blocky {
   }
   return {
     cells,
-    color: `hsl(${hue} 70% 55%)`,
-    background: background ?? `hsl(${hue} 45% 92%)`,
+    color: hslHex(hue, 70, 55),
+    background: background ?? hslHex(hue, 45, 92),
   };
+}
+
+/** What emoji and pictures sit on when no background is picked. */
+export const DEFAULT_BACKGROUND = "#ffffff";
+
+/**
+ * The background an avatar has when none is picked: the blocky's own tint,
+ * and white for emoji and pictures.
+ */
+export function defaultBackground(kind: Avatar["kind"], id: string): string {
+  return kind === "blocky" ? blocky(id).background : DEFAULT_BACKGROUND;
 }
 
 /**
@@ -224,7 +250,7 @@ export function avatarSvg(avatar: Avatar, id: string): string {
   const custom = avatarBackground(avatar);
   const open = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="128" height="128">`;
   if (avatar.kind === "emoji") {
-    return `${open}<circle cx="32" cy="32" r="32" fill="${custom ?? "#ffffff"}"/><text x="32" y="34" font-size="38" text-anchor="middle" dominant-baseline="central">${avatar.value}</text></svg>`;
+    return `${open}<circle cx="32" cy="32" r="32" fill="${custom ?? DEFAULT_BACKGROUND}"/><text x="32" y="34" font-size="38" text-anchor="middle" dominant-baseline="central">${avatar.value}</text></svg>`;
   }
   const { cells, color, background } = blocky(id, custom);
   const rects = cells
