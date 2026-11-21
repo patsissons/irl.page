@@ -226,8 +226,23 @@ test("the avatar can be changed from the profile", async ({ page }) => {
     .getByRole("img");
   await expect(hex).toHaveValue("");
   await expect(avatar).toHaveCSS("background-color", "rgb(255, 255, 255)");
+
+  // The header shows a colour as soon as it is picked, but leaving the
+  // profile without saving puts the saved one back.
+  await page.getByRole("button", { name: "#ef4444" }).click();
+  await expect(avatar).toHaveCSS("background-color", "rgb(239, 68, 68)");
+  await page
+    .getByRole("link", { name: "My tickets" })
+    .filter({ visible: true })
+    .click();
+  await expect(page).toHaveURL(/\/tickets$/);
+  await expect(avatar).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await page.getByRole("link", { name: "Your profile" }).click();
+  await expect(hex).toHaveValue("");
+
   await page.getByRole("button", { name: "#3b82f6" }).click();
   await expect(hex).toHaveValue("#3b82f6");
+  await expect(avatar).toHaveCSS("background-color", "rgb(59, 130, 246)");
   await hex.fill("#0af");
   await page.getByRole("button", { name: "Save avatar" }).click();
   await expect(avatar).toHaveCSS("background-color", "rgb(0, 170, 255)");

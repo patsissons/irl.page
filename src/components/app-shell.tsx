@@ -39,7 +39,7 @@ export function AppShell({
   children: ReactNode;
   bleed?: boolean;
 }) {
-  const { user, demo } = useSession();
+  const { user, demo, preview } = useSession();
   return (
     <div className="flex min-h-dvh flex-col">
       {demo && (
@@ -81,7 +81,10 @@ export function AppShell({
               aria-label="Your profile"
               className="rounded-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
-              <Avatar user={user} size={36} />
+              <Avatar
+                user={preview ? { ...user, avatar: preview } : user}
+                size={36}
+              />
             </Link>
           )}
         </div>

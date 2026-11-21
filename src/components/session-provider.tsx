@@ -5,7 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { MeResponse } from "@shared/types";
+import type { Avatar, MeResponse } from "@shared/types";
 import { api } from "@/lib/api";
 import { NO_AUTH, SessionContext, type Session } from "@/lib/session";
 
@@ -13,6 +13,7 @@ const SIGNED_OUT: MeResponse = { user: null, auth: NO_AUTH, demo: false };
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<MeResponse | null>(null);
+  const [preview, setPreview] = useState<Avatar | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -40,8 +41,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       auth: state?.auth ?? NO_AUTH,
       demo: state?.demo ?? false,
       refresh,
+      preview,
+      setPreview,
     }),
-    [state, refresh],
+    [state, refresh, preview],
   );
 
   return (

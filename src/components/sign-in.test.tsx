@@ -14,6 +14,8 @@ function show(auth: AuthOptions, demo = false) {
         auth,
         demo,
         refresh: async () => {},
+        preview: null,
+        setPreview: () => {},
       }}
     >
       <MemoryRouter>
