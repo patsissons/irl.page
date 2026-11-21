@@ -61,6 +61,20 @@ function Choice({
   );
 }
 
+/**
+ * Shows the avatar being edited in the header as well, until the profile
+ * page is left; only saving keeps it.
+ */
+function HeaderPreview({ avatar }: { avatar: AvatarValue }) {
+  const { setPreview } = useSession();
+  const { kind, value, background } = avatar;
+  useEffect(() => {
+    setPreview({ kind, value, ...(background ? { background } : {}) });
+    return () => setPreview(null);
+  }, [setPreview, kind, value, background]);
+  return null;
+}
+
 /** Pick how you appear. Doubles as onboarding (`welcome`). */
 export function Profile({ welcome = false }: { welcome?: boolean }) {
   const { loading, user, refresh } = useSession();
@@ -134,6 +148,8 @@ export function Profile({ welcome = false }: { welcome?: boolean }) {
           : selected === "gravatar"
             ? Boolean(gravatar)
             : true;
+  // What the avatar will look like: the draft once it is valid.
+  const shown: AvatarValue = { ...(valid ? chosen : current), background };
 
   async function save() {
     setSaving(true);
@@ -160,13 +176,8 @@ export function Profile({ welcome = false }: { welcome?: boolean }) {
   return (
     <div className="grid gap-5">
       <header className="flex items-center gap-4">
-        <Avatar
-          user={{
-            id: user.id,
-            avatar: { ...(valid ? chosen : current), background },
-          }}
-          size={72}
-        />
+        <Avatar user={{ id: user.id, avatar: shown }} size={72} />
+        <HeaderPreview avatar={shown} />
         <div>
           <h1 className="text-2xl font-bold">
             {picking ? "Pick your avatar" : "Your avatar"}

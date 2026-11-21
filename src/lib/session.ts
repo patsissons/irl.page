@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { AuthOptions, Me } from "@shared/types";
+import type { AuthOptions, Avatar, Me } from "@shared/types";
 
 export interface Session {
   loading: boolean;
@@ -9,6 +9,12 @@ export interface Session {
   demo: boolean;
   /** Re-reads /api/me, e.g. after signing in or changing the avatar. */
   refresh: () => Promise<void>;
+  /**
+   * An avatar being edited on the profile page and not saved yet. The header
+   * shows it instead of the saved one until the profile page is left.
+   */
+  preview: Avatar | null;
+  setPreview: (avatar: Avatar | null) => void;
 }
 
 export const NO_AUTH: AuthOptions = {
@@ -24,6 +30,8 @@ export const SessionContext = createContext<Session>({
   auth: NO_AUTH,
   demo: false,
   refresh: async () => {},
+  preview: null,
+  setPreview: () => {},
 });
 
 export function useSession(): Session {
