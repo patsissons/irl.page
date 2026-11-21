@@ -183,27 +183,31 @@ point them at another file.
 ### Database (PocketHost)
 
 The hosted database is the PocketHost instance `irl`
-(`https://irl.pockethost.io`), named in `pocketbase/.pockethostconfig`.
+(`https://irl.pockethost.io`, set in `scripts/pocketbase-deploy.sh`).
 
 Every push to `main`, which includes every merged PR, runs the
 `deploy-pocketbase` job in `.github/workflows/ci.yml` once `validate` has
 passed. It runs `scripts/pocketbase-deploy.sh`, which uses the
-[PocketHost CLI](https://pockethost.io/docs/cli) to upload
-`pocketbase/pb_migrations/` over HTTPS. The instance restarts and applies
-new migrations. Migrations removed from the repo are removed from the
-instance; `pb_data` is never touched.
+[PocketHost CLI](https://pockethost.io/docs/cli) (v5, the `pockethost`
+binary, pinned in the workflow) to upload `pocketbase/pb_migrations/` over
+HTTPS, then restarts the instance so new migrations apply. Migrations
+removed from the repo are removed from the instance; `pb_data` is never
+touched.
 
-The job needs one repository secret, `POCKETHOST_TOKEN`: a personal access
-token from [Account → API Tokens](https://pockethost.io/account/tokens) with
-write access to the `irl` instance only. Paste it at the prompt:
+The job needs one repository secret, `P1_TOKEN`: an account token from
+[Account → API Tokens](https://pockethost.io/account/tokens) with "Deploy +
+read" access to the `irl` instance only. Paste it at the prompt:
 
 ```sh
-gh secret set POCKETHOST_TOKEN
+gh secret set P1_TOKEN
 ```
 
-To deploy by hand, run `pnpm db:deploy` (add `--dry-run` to list what would
-be deployed). It uses `POCKETHOST_TOKEN` from the environment or `.env`, or
-the token saved by `pockethost login`.
+To deploy by hand, install the CLI (`brew install pockethost/tap/pockethost`;
+the old npm `pockethost` package no longer works and must be removed first
+with `npm rm -g pockethost`) and run `pnpm db:deploy`. Add `--dry-run` to
+list what would be uploaded; it doesn't contact PocketHost, so it doesn't
+check the token. The script uses `P1_TOKEN` from the environment or `.env`,
+or the login saved by `pockethost login`.
 
 ### Worker
 
