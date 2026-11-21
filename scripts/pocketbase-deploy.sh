@@ -1,46 +1,57 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Deploys ./pocketbase (pb_migrations, and pb_hooks if it ever exists) to the
-# PocketHost instance with the PocketHost CLI. The CLI uploads over HTTPS and
-# the instance restarts to apply new migrations. Files in those folders on
-# the instance that are no longer in the repo are deleted; pb_data is never
-# touched.
+# Deploys pocketbase/pb_migrations to the PocketHost instance with the
+# PocketHost CLI (the v5 `pockethost` binary), then restarts the instance so
+# new migrations apply. Files in pb_migrations on the instance that are no
+# longer in the repo are deleted; pb_data is never touched.
 #
-# The instance is named in pocketbase/.pockethostconfig. The CLI signs in
-# with a personal access token: POCKETHOST_TOKEN from the environment or
-# ./.env, or else the one saved by `pockethost login`.
+# The CLI signs in with an account token: P1_TOKEN from the environment or
+# ./.env, or else the login saved by `pockethost login`.
 #
-# Extra arguments go to `pockethost deploy` (for example --dry-run).
+# The CLI is a whole PocketBase (PocketOne) and boots one in the folder it
+# runs in: it writes tsconfig.json and types.d.ts there and opens (or
+# creates) pb_data. So the migrations are copied to a throwaway folder and
+# deployed from there, which also keeps pb_data_e2e out of the upload.
+#
+# Extra arguments go to `pockethost deploy` (for example --dry-run, which
+# lists the files without contacting PocketHost).
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+POCKETHOST_URL="${POCKETHOST_URL:-https://irl.pockethost.io}"
 
-# Pinned so a CLI release can't change what a deploy does; bump deliberately.
-POCKETHOST_CLI_VERSION="${POCKETHOST_CLI_VERSION:-4.3.0}"
-
-if [ -z "${POCKETHOST_TOKEN+x}" ] && [ -f "$ROOT_DIR/.env" ]; then
+if [ -z "${P1_TOKEN+x}" ] && [ -f "$ROOT_DIR/.env" ]; then
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in
-      POCKETHOST_TOKEN=*)
+      P1_TOKEN=*)
         val="${line#*=}"
         val="${val%\"}"
         val="${val#\"}"
-        export POCKETHOST_TOKEN="$val"
+        export P1_TOKEN="$val"
         ;;
     esac
   done <"$ROOT_DIR/.env"
 fi
 
-# Without this the CLI starts from where pnpm was invoked and would treat the
-# repo root as the project.
-export POCKETHOST_PROJECT_DIR="$ROOT_DIR/pocketbase"
+# The npm `pockethost` 4.x CLI no longer works against PocketHost and takes
+# different flags, so refuse anything older than v5.
+if ! command -v pockethost >/dev/null 2>&1; then
+  echo "pockethost not found: install it with 'brew install pockethost/tap/pockethost'" >&2
+  exit 1
+fi
+version="$(pockethost --version 2>/dev/null || true)"
+case "$version" in
+  [5-9].* | [1-9][0-9]*.*) ;;
+  *)
+    echo "pockethost ${version:-(unknown version)} is too old: v5 or later is required." >&2
+    echo "Run 'npm rm -g pockethost', then 'brew install pockethost/tap/pockethost'." >&2
+    exit 1
+    ;;
+esac
 
-# --yes: delete removed files without asking (the CLI refuses to delete them
-#   when there is no terminal, as in CI).
-# --no-node-modules: nothing on the instance uses npm packages.
-# --exclude: the e2e data directory matches the default pb_* include.
-npx --yes "pockethost@$POCKETHOST_CLI_VERSION" deploy \
-  --yes \
-  --no-node-modules \
-  --exclude 'pb_data_*,pb_data_*/**/*' \
-  "$@"
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
+cp -R "$ROOT_DIR/pocketbase/pb_migrations" "$STAGE/pb_migrations"
+
+cd "$STAGE"
+pockethost deploy "$POCKETHOST_URL" --restart "$@"
